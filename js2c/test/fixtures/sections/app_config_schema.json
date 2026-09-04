@@ -1,0 +1,13 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "app_config",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["config_version", "wifi", "mqtt"],
+  "properties": {
+    "config_version": { "type": "integer", "minimum": 1, "maximum": 1 },
+    "device_name":    { "type": "string", "maxLength": 63, "default": "" },
+    "wifi": { "$ref": "wifi_manager/wifi_config_schema.json" },
+    "mqtt": { "$ref": "mqtt_manager/mqtt_config_schema.json" }
+  }
+}

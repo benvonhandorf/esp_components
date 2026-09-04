@@ -4,8 +4,8 @@ description: >-
   registered sink, so a serial port, a web console and an MQTT topic all show
   the same text. Also redirects ESP_LOGx through the same path. Depends on
   nothing, so a headless project can use it without a command shell.
-url: https://github.com/benvonhandorf/esp_components
-repository: git://github.com/benvonhandorf/esp_components.git
+url: https://github.com/benvonhandorf/esp_components/tree/main/diag
+repository: https://github.com/benvonhandorf/esp_components.git
 issues: https://github.com/benvonhandorf/esp_components/issues
 tags:
   - logging

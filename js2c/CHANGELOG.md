@@ -9,7 +9,22 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 - Vendored `json_schema_to_c` at upstream revision `570075656a080a6756add4dc209d8f8d5ed4c0da`
   under `tool/`, MIT licensed (see `tool/LICENSE.json_schema_to_c`).
-- `project_include.cmake` exporting `js2c_generate()` and `js2c_publish_schema()`.
+- `project_include.cmake` exporting `js2c_generate()` and `js2c_generate_sections()`.
+- `js2c_sections.py`, which derives a project's top-level config walker from its one
+  authored schema: each section that `$ref`s a component's fragment becomes a
+  `js2cType: "raw"` slice, so the section is parsed in place by the component that owns
+  it rather than being defined a second time here. It also emits an X-macro over the
+  sections, so one added to the schema but not dispatched in C fails to compile, and
+  computes the jsmn token budget from the inlined schema using the generator's own
+  accounting.
+
+  A section names its fragment by the **component that owns it**
+  (`wifi_manager/wifi_config_schema.json`), resolved to that component's directory. An
+  earlier attempt had each component copy its fragment to a staging directory, which does
+  not work: ESP-IDF gives `main` an implicit dependency on every component but still
+  configures it before most of them, so the fragments are not there yet when the project's
+  schema is derived. Component directories are known before any component's
+  `CMakeLists.txt` runs, so resolving through them has no ordering dependency.
 - `js2c_error_capture` runtime, which turns the diagnostics the generated parsers
   emit through `LOG_ERROR` into a readable reason string.
 

@@ -1,0 +1,15 @@
+version: "0.1.0"
+description: >-
+  Durable storage for a device's configuration file: read with an optional
+  removable-media override, and replace without being able to lose the working
+  copy. Filesystem-agnostic -- it takes paths and uses stdio, so the application
+  decides whether the config lives on LittleFS, FAT or an SD card, and mounts it.
+url: https://github.com/benvonhandorf/esp_components/tree/main/config_store
+repository: https://github.com/benvonhandorf/esp_components.git
+issues: https://github.com/benvonhandorf/esp_components/issues
+tags:
+  - config
+  - storage
+  - filesystem
+dependencies:
+  idf: ">=5.0"

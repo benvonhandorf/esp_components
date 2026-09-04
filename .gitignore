@@ -10,3 +10,5 @@ __pycache__/
 js2c/test/generated/
 js2c/test/test_js2c
 cli/test/test_cli
+config_store/test/test_config_store
+js2c/test/test_sections

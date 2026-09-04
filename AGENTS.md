@@ -104,6 +104,10 @@ So, at the point this repository is first pushed and tagged:
    `diag` with `git:`, `path: diag` and `version: diag-v0.1.0`. For a git dependency the
    component manager treats `version` as a **git ref**, not a semver range — which is why
    this cannot be done before the tags exist.
+
+   Use `https://github.com/...` or `git@github.com:...`, never `git://`: that is the
+   unauthenticated git daemon protocol on port 9418, which GitHub permanently disabled in
+   2022, so it fails with a connection timeout that looks like a network fault.
 3. Re-run `tests/consumer` against the published tags rather than
    `EXTRA_COMPONENT_DIRS`. Only that exercises the path a stranger takes, and it is the
    one part of the distribution model this repository cannot currently prove.

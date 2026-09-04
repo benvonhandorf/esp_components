@@ -1,0 +1,12 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "mqtt_config",
+  "type": "object",
+  "additionalProperties": false,
+  "properties": {
+    "uri":         { "type": "string", "maxLength": 64, "default": "" },
+    "topic_root":  { "type": "string", "maxLength": 64, "default": "" },
+    "keepalive_s": { "type": "integer", "minimum": 5, "maximum": 600,
+                     "js2cType": "uint16_t", "default": 60 }
+  }
+}

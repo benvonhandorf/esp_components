@@ -5,8 +5,8 @@ description: >-
   same executor queue the serial reader feeds, and all output is mirrored to
   every connected browser, so serial and web see the same session. Starts its
   own HTTP server or registers on one you already have.
-url: https://github.com/benvonhandorf/esp_components
-repository: git://github.com/benvonhandorf/esp_components.git
+url: https://github.com/benvonhandorf/esp_components/tree/main/cli_web
+repository: https://github.com/benvonhandorf/esp_components.git
 issues: https://github.com/benvonhandorf/esp_components/issues
 tags:
   - console

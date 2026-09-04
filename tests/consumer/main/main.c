@@ -3,6 +3,10 @@
 
 #include "cli.h"
 #include "cli_web.h"
+#include "app_config.h"           /* generated: the top-level walker */
+#include "app_config_sections.h"  /* generated: APP_CONFIG_SECTIONS(X) */
+#include "config_store.h"
+#include "demo_mqtt_config.h"
 #include "demo_net.h"
 #include "diag.h"
 #include "js2c_error_capture.h"
@@ -42,6 +46,81 @@ static void check_js2c(void) {
     printf("reason: %s\n", js2c_error_capture_get());
 }
 
+/* --- config: one authored schema, sections parsed by their owners ----------- */
+
+/*
+ * The aggregate composes each component's own generated type, so there is exactly
+ * one definition of each config concept, owned by the component that consumes it.
+ */
+typedef struct {
+    app_config_t        top;
+    net_config_t        net;
+    demo_mqtt_config_t  mqtt;
+} app_config_full_t;
+
+/* One line per section, dispatched by the X-macro the schema generated. Adding a
+ * section to the schema without wiring it here fails to compile rather than
+ * leaving a silently zeroed struct. */
+#define SECTION_PARSER_net  json_parse_net_config_with_len
+#define SECTION_PARSER_mqtt json_parse_demo_mqtt_config_with_len
+
+#define PARSE_SECTION(name)                                                     \
+    do {                                                                        \
+        const app_config_json_ref_t *slice = &out->top.name;                    \
+        js2c_error_capture_reset();                                             \
+        /* In place: the slice indexes the original buffer, so no section is    \
+         * copied out before being parsed. */                                   \
+        if (SECTION_PARSER_##name(json + slice->index, slice->length,           \
+                                  &out->name)) {                                \
+            printf("config: %s: %s\n", #name, js2c_error_capture_get());        \
+            return false;                                                       \
+        }                                                                       \
+    } while (0);
+
+static bool config_parse(app_config_full_t *out, const char *json, size_t len)
+{
+    memset(out, 0, sizeof(*out));
+
+    js2c_error_capture_reset();
+    if (json_parse_app_config_with_len(json, len, &out->top)) {
+        printf("config: %s\n", js2c_error_capture_get());
+        return false;
+    }
+
+    APP_CONFIG_SECTIONS(PARSE_SECTION)
+    return true;
+}
+
+static void check_config(void)
+{
+    static const char *const JSON =
+        "{\"config_version\":1,\"device_name\":\"bench\","
+        "\"net\":{\"ssid\":\"lab\",\"channel\":11},"
+        "\"mqtt\":{\"uri\":\"mqtt://broker\"}}";
+
+    app_config_full_t cfg;
+    expect(config_parse(&cfg, JSON, strlen(JSON)), "aggregate config parses");
+    expect(cfg.top.config_version == 1,               "top-level scalar parsed");
+    expect(strcmp(cfg.top.device_name, "bench") == 0, "top-level string parsed");
+    expect(strcmp(cfg.net.ssid, "lab") == 0,          "net section parsed by its owner");
+    expect(cfg.net.channel == 11,                     "net section value parsed");
+    expect(strcmp(cfg.mqtt.uri, "mqtt://broker") == 0, "mqtt section parsed by its owner");
+    expect(cfg.mqtt.keepalive_s == 60,                "mqtt default came from its own schema");
+    expect(APP_CONFIG_SECTIONS_COUNT == 2,            "the schema declares two sections");
+
+    /* config_store takes paths, so the application picks the filesystem. Nothing
+     * is mounted here, so this only checks the guard. */
+    const config_store_config_t store = {
+        .path = "/res/config.json",
+        .override_path = "/sdcard/config.json",
+        .max_size = 4096,
+    };
+    expect(config_store_init(&store) == ESP_OK, "config_store accepts its paths");
+    char buf[64];
+    expect(config_store_read(buf, sizeof(buf), NULL, NULL) == ESP_ERR_NOT_FOUND,
+           "reading with nothing mounted reports NOT_FOUND");
+}
+
 /* --- cli: a component shipping its own command group ----------------------- */
 
 static int cmd_demo_show(int argc, char **argv)
@@ -66,6 +145,7 @@ static const cli_group_t demo_group = {
 void app_main(void)
 {
     check_js2c();
+    check_config();
 
     ESP_ERROR_CHECK(diag_init(NULL));
     ESP_ERROR_CHECK(cli_register_group(&demo_group));

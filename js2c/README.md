@@ -16,7 +16,6 @@ generated parsers need.
 if(NOT CMAKE_BUILD_EARLY_EXPANSION)
     js2c_generate("${CMAKE_CURRENT_SOURCE_DIR}/wifi_config_schema.json"
                   BASENAME wifi_config OUT_C GEN_C OUT_H GEN_H)
-    js2c_publish_schema(wifi_manager "${CMAKE_CURRENT_SOURCE_DIR}/wifi_config_schema.json")
     get_filename_component(GEN_DIR "${GEN_C}" DIRECTORY)
 endif()
 
@@ -40,6 +39,74 @@ is hash-verified and re-extracted. Configure time rather than build time because
 generated header is public, and a build-time rule gives a dependent's *compile* step
 no ordering edge to the generator — only its link step — so a dependent that includes
 the header would race it on a clean parallel build.
+
+## Composing a project config
+
+A project writes **one** schema. Each top-level property that `$ref`s another component's
+schema is a *section*:
+
+```json
+{
+  "$id": "app_config",
+  "required": ["config_version", "wifi", "mqtt"],
+  "properties": {
+    "config_version": { "type": "integer", "minimum": 1, "maximum": 1 },
+    "wifi": { "$ref": "wifi_manager/wifi_config_schema.json" },
+    "mqtt": { "$ref": "mqtt_manager/mqtt_config_schema.json" }
+  }
+}
+```
+
+```cmake
+if(NOT CMAKE_BUILD_EARLY_EXPANSION)
+    js2c_generate_sections("${CMAKE_CURRENT_LIST_DIR}/../config/app_config_schema.json"
+                           BASENAME app_config OUT_C GEN_C)
+    get_filename_component(GEN_DIR "${GEN_C}" DIRECTORY)
+endif()
+```
+
+Do not name an output variable after one of these functions' own keywords
+(`BASENAME`, `GEN_DIR`, `SCHEMA`, ...). `cmake_parse_arguments` treats a value that
+matches a keyword as a keyword, so `OUT_C GEN_DIR` parses as two empty options and the
+variable is silently never set.
+
+The first path segment of a `$ref` is the **component that owns the fragment**, resolved to
+that component's directory — so the reference says nothing about where the component
+actually lives, whether that is `components/`, a namespaced directory under
+`managed_components/`, or anywhere `EXTRA_COMPONENT_DIRS` points.
+
+This cannot be generated from the authored schema directly: `json_schema_to_c` would emit a
+second definition of every section's struct, colliding with the one the owning component
+already generates. So `js2c_generate_sections()` rewrites each section to
+`{"js2cType": "raw"}` — the walker records that section's byte offset and length, and the
+project hands the slice to the parser belonging to the component that owns it, in place:
+
+```c
+#define SECTION_PARSER_wifi json_parse_wifi_config_with_len
+#define SECTION_PARSER_mqtt json_parse_mqtt_config_with_len
+
+#define PARSE_SECTION(name)                                              \
+    if (SECTION_PARSER_##name(json + cfg.top.name.index,                 \
+                              cfg.top.name.length, &cfg.name)) { ... }
+
+APP_CONFIG_SECTIONS(PARSE_SECTION)   /* generated X-macro over the sections */
+```
+
+Dispatch through the X-macro, not by hand: a section added to the schema expands to an
+`X()` naming a parser and a struct member that do not exist yet, so a forgotten section is
+a build failure rather than a silently zeroed struct.
+
+Every section must be listed in `required` — a raw field cannot carry a default, so an
+absent one would leave the slice zeroed instead of reporting a problem. Write `{}` to mean
+"all defaults".
+
+### The token budget
+
+The walker costs one token per section, but the tokenizer still has to hold every token of
+the content it is skipping. So `js2c_generate_sections()` computes the budget from the
+authored schema with every section inlined — using the generator's own accounting rather
+than a reimplementation — and embeds it in the derived schema's `js2cSettings`. Nothing to
+pick by hand, and nothing that drifts when a fragment grows.
 
 ## Writing a schema
 

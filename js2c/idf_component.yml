@@ -5,8 +5,8 @@ description: >-
   CMake API (js2c_generate/js2c_publish_schema) exported through
   project_include.cmake so a component in any repository can generate its own
   config parser.
-url: https://github.com/benvonhandorf/esp_components
-repository: git://github.com/benvonhandorf/esp_components.git
+url: https://github.com/benvonhandorf/esp_components/tree/main/js2c
+repository: https://github.com/benvonhandorf/esp_components.git
 issues: https://github.com/benvonhandorf/esp_components/issues
 tags:
   - json

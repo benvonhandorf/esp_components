@@ -1,0 +1,11 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "wifi_config",
+  "type": "object",
+  "additionalProperties": false,
+  "properties": {
+    "ssid":     { "type": "string", "maxLength": 32, "default": "" },
+    "password": { "type": "string", "maxLength": 63, "default": "" },
+    "hostname": { "type": "string", "maxLength": 32, "default": "esp-device" }
+  }
+}

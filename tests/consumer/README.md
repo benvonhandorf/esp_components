@@ -24,8 +24,15 @@ every component, and the doctrine in [AGENTS.md](../../AGENTS.md) requires it.
 ## What it covers
 
 - **js2c** — `components/demo_net/` owns a schema and generates its parser from it,
-  exercising `js2c_generate()` and `js2c_publish_schema()` from a component that is not in
+  exercising `js2c_generate()` from a component that is not in
   the same repository as `js2c`. `app_main()` asserts schema defaults, parsing, and
   range rejection with a readable reason.
 - **cli / diag** — `main` registers a command group and starts the shell, so the
   dispatcher, the REPL, the serial transport and the output fan-out all link and run.
+- **config** — `config/app_config_schema.json` is the project's one authored schema. Its
+  `net` and `mqtt` sections `$ref` the schemas owned by `demo_net` and `demo_mqtt`, and
+  `js2c_generate_sections()` derives the top-level walker plus an X-macro over the
+  sections. `app_main()` parses a config and asserts each section was handled by its
+  owner's parser, including a default that comes from the owning component's own schema.
+- **config_store** — takes paths and mounts nothing, so the test only checks its guards;
+  its file handling is covered thoroughly by `config_store/test` against real files.

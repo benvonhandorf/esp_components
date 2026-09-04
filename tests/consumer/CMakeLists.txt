@@ -14,7 +14,7 @@ list(APPEND EXTRA_COMPONENT_DIRS "${CMAKE_CURRENT_LIST_DIR}/../..")
 # esp_hal_ana_cmpr for linux. COMPONENTS limits which components are built at all,
 # without touching main's requirements.
 if(IDF_TARGET STREQUAL "linux")
-    set(COMPONENTS main js2c demo_net diag cli cli_web)
+    set(COMPONENTS main js2c demo_net demo_mqtt diag cli cli_web config_store)
 endif()
 include($ENV{IDF_PATH}/tools/cmake/project.cmake)
 project(js2c_consumer)

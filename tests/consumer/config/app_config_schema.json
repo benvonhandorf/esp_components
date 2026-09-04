@@ -1,0 +1,14 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "app_config",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["config_version", "net", "mqtt"],
+  "properties": {
+    "config_version": { "type": "integer", "minimum": 1, "maximum": 1,
+                        "description": "Config format version this firmware accepts" },
+    "device_name":    { "type": "string", "maxLength": 31, "default": "demo" },
+    "net":  { "$ref": "demo_net/net_config_schema.json" },
+    "mqtt": { "$ref": "demo_mqtt/mqtt_config_schema.json" }
+  }
+}

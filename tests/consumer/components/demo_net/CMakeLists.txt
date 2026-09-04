@@ -7,7 +7,6 @@ if(NOT CMAKE_BUILD_EARLY_EXPANSION)
     js2c_generate("${CMAKE_CURRENT_SOURCE_DIR}/net_config_schema.json"
                   BASENAME net_config
                   OUT_C GEN_C OUT_H GEN_H)
-    js2c_publish_schema(demo_net "${CMAKE_CURRENT_SOURCE_DIR}/net_config_schema.json")
     get_filename_component(GEN_DIR "${GEN_C}" DIRECTORY)
 endif()
 

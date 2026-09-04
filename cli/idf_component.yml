@@ -5,8 +5,8 @@ description: >-
   groups are a naming and help device with no navigation state, so there is no
   current menu to shadow a command or capture a self-composed line. One executor
   task runs every command, so command modules need no locking of their own.
-url: https://github.com/benvonhandorf/esp_components
-repository: git://github.com/benvonhandorf/esp_components.git
+url: https://github.com/benvonhandorf/esp_components/tree/main/cli
+repository: https://github.com/benvonhandorf/esp_components.git
 issues: https://github.com/benvonhandorf/esp_components/issues
 tags:
   - console
