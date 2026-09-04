@@ -1,0 +1,5 @@
+# cli_io.c selects its transport with #if CONFIG_ESP_CONSOLE_USB_SERIAL_JTAG, so
+# one build only ever compiles one half of it. This file exercises the
+# USB-Serial-JTAG branch; delete it (or build another target) for the UART one.
+CONFIG_ESP_CONSOLE_USB_SERIAL_JTAG=y
+CONFIG_ESP_CONSOLE_SECONDARY_NONE=y

@@ -1,0 +1,52 @@
+menu "cli: command shell"
+
+    config CLI_MAX_GROUPS
+        int "Maximum registered command groups"
+        default 32
+        range 4 128
+        help
+            Groups are registered at startup by the application and by any
+            component that ships commands. The table holds pointers only; the
+            groups themselves stay static const in the modules that define them.
+
+    config CLI_MAX_LINE_LEN
+        int "Maximum command line length (bytes)"
+        default 256
+        range 64 1024
+
+    config CLI_MAX_ARGS
+        int "Maximum tokens in a command line"
+        default 32
+        range 4 128
+        help
+            Includes the group token. A line with more tokens is truncated by
+            the tokenizer, not rejected.
+
+    config CLI_HISTORY_LEN
+        int "Command history entries"
+        default 32
+        range 0 128
+
+    config CLI_COMMAND_QUEUE_LEN
+        int "Pending commands queued for the executor"
+        default 4
+        range 1 32
+        help
+            Every interface -- serial, web -- queues here, and one task drains
+            it, so commands never run concurrently. Depth only covers bursts;
+            it does not add parallelism.
+
+    config CLI_EXECUTOR_STACK
+        int "Executor task stack (bytes)"
+        default 6144
+        range 2048 32768
+        help
+            Every command runs on this task, including I2C scans and WiFi
+            operations, so it needs more stack than a typical worker.
+
+    config CLI_READER_STACK
+        int "Serial reader task stack (bytes)"
+        default 4096
+        range 2048 16384
+
+endmenu

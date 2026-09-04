@@ -1,0 +1,22 @@
+menu "diag: output fan-out"
+
+    config DIAG_MAX_SINKS
+        int "Maximum registered output sinks"
+        default 4
+        range 1 16
+        help
+            How many sinks may be attached at once, besides stdout. One per
+            interface that must see command and log output -- a WebSocket
+            console, an MQTT log topic, a file on the filesystem. The table is
+            statically sized, so this costs memory whether or not it is used.
+
+    config DIAG_FORMAT_BUF_SIZE
+        int "Output formatting buffer size (bytes)"
+        default 512
+        range 128 4096
+        help
+            Output is formatted once into this buffer and then handed to stdout
+            and to every sink, so all interfaces see byte-identical text. A line
+            longer than this is truncated, not split. Statically allocated.
+
+endmenu

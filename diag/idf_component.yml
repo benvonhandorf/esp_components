@@ -1,0 +1,15 @@
+version: "0.1.0"
+description: >-
+  Command and log output fan-out: one formatted line reaches stdout and every
+  registered sink, so a serial port, a web console and an MQTT topic all show
+  the same text. Also redirects ESP_LOGx through the same path. Depends on
+  nothing, so a headless project can use it without a command shell.
+url: https://github.com/benvonhandorf/esp_components
+repository: git://github.com/benvonhandorf/esp_components.git
+issues: https://github.com/benvonhandorf/esp_components/issues
+tags:
+  - logging
+  - console
+  - diagnostics
+dependencies:
+  idf: ">=5.0"

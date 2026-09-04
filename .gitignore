@@ -9,3 +9,4 @@ __pycache__/
 # Host test artefacts
 js2c/test/generated/
 js2c/test/test_js2c
+cli/test/test_cli
