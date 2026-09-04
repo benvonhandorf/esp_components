@@ -26,6 +26,10 @@ not drag in changes to the others.
 | [cli](cli/) | Two-token command shell (`gpio set 19 true`) with registerable groups, one command executor, and no navigation state |
 | [cli_web](cli_web/) | Browser transport for `cli`: an embedded terminal page and a WebSocket, sharing one session with the serial port |
 | [config_store](config_store/) | Reads and replaces a device's config file without being able to lose the working copy; optional removable-media override. Mounts nothing |
+| [net_events](net_events/) | Network link state as events, so services that need connectivity are not known to the thing that provides it |
+| [wifi_manager](wifi_manager/) | Station and AP, prioritised known networks, reconnect backoff, optional reachability ping. Depends on nothing that runs over it |
+| [mdns_manager](mdns_manager/) | Advertises the device and its services by name; registration is data, not a weak symbol |
+| [ntp_manager](ntp_manager/) | Sets the clock from NTP once the link is up, and posts a time-synced event |
 
 ## Testing
 

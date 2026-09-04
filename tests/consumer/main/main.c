@@ -6,6 +6,10 @@
 #include "app_config.h"           /* generated: the top-level walker */
 #include "app_config_sections.h"  /* generated: APP_CONFIG_SECTIONS(X) */
 #include "config_store.h"
+#include "mdns_manager.h"
+#include "net_events.h"
+#include "ntp_manager.h"
+#include "wifi_manager.h"
 #include "demo_mqtt_config.h"
 #include "demo_net.h"
 #include "diag.h"
@@ -121,6 +125,48 @@ static void check_config(void)
            "reading with nothing mounted reports NOT_FOUND");
 }
 
+/* --- networking: the graph only points down -------------------------------- */
+
+/*
+ * Nothing here wires wifi to mdns or to ntp. Each service subscribes to
+ * NET_EVENT and starts itself when there is a link, which is why wifi_manager's
+ * REQUIRES names neither of them.
+ */
+static void check_networking(void)
+{
+    static const mdns_manager_txt_t txt[] = {{"path", "/"}};
+    static const mdns_manager_service_t http = {
+        .type = "_http", .proto = "_tcp", .port = 80,
+        .txt = txt, .txt_count = 1,
+    };
+
+    const mdns_manager_config_t mdns_cfg = {
+        .hostname = "esp-consumer",
+        .instance_name = "Consumer Test",
+    };
+    expect(mdns_manager_start(&mdns_cfg) == ESP_OK, "mdns_manager starts before any link");
+    /* Registration is data, not a weak symbol the application must override. */
+    expect(mdns_manager_add_service(&http) == ESP_OK, "a service can be advertised");
+    expect(!mdns_manager_is_advertising(), "nothing advertised until the link is up");
+
+    ntp_config_t ntp = {0};
+    snprintf(ntp.server, sizeof(ntp.server), "pool.ntp.org");
+    snprintf(ntp.timezone, sizeof(ntp.timezone), "UTC0");
+    ntp.enabled = true;
+    ntp.sync_interval_ms = 3600000;
+    expect(ntp_manager_start(&ntp) == ESP_OK, "ntp_manager starts before any link");
+    expect(!ntp_manager_is_synced(), "clock not claimed synced before a sync");
+
+    expect(ntp_manager_start(&ntp) == ESP_ERR_INVALID_STATE, "starting twice is refused");
+
+    /* The event base is what decouples them; posting is how a link layer other
+     * than WiFi would drive the same services. */
+    expect(net_events_post(NET_EVENT_LINK_DOWN, NULL, 0) == ESP_OK,
+           "link events can be posted");
+    expect(strcmp(net_events_name(NET_EVENT_LINK_UP), "LINK_UP") == 0,
+           "events have readable names");
+}
+
 /* --- cli: a component shipping its own command group ----------------------- */
 
 static int cmd_demo_show(int argc, char **argv)
@@ -146,6 +192,7 @@ void app_main(void)
 {
     check_js2c();
     check_config();
+    check_networking();
 
     ESP_ERROR_CHECK(diag_init(NULL));
     ESP_ERROR_CHECK(cli_register_group(&demo_group));

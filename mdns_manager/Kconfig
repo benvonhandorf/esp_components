@@ -1,0 +1,12 @@
+menu "mdns_manager"
+
+    config MDNS_MANAGER_MAX_SERVICES
+        int "Maximum advertised services"
+        default 4
+        range 1 16
+        help
+            Services are copied into a statically sized table so they survive to
+            be re-advertised after a reconnect, and so a caller may register from
+            a stack frame. This costs memory whether or not it is used.
+
+endmenu

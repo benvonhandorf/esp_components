@@ -1,0 +1,16 @@
+version: "0.1.0"
+description: >-
+  Advertises a device and its services over mDNS so it can be found by name
+  rather than by whatever address DHCP handed out. Subscribes to network link
+  events, so it is started once at boot and needs no sequencing against the
+  network coming up, and re-advertises after a reconnect.
+url: https://github.com/benvonhandorf/esp_components/tree/main/mdns_manager
+repository: https://github.com/benvonhandorf/esp_components.git
+issues: https://github.com/benvonhandorf/esp_components/issues
+tags:
+  - mdns
+  - discovery
+  - networking
+dependencies:
+  idf: ">=5.0"
+  espressif/mdns: "^1.8"

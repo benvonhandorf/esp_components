@@ -36,3 +36,8 @@ every component, and the doctrine in [AGENTS.md](../../AGENTS.md) requires it.
   owner's parser, including a default that comes from the owning component's own schema.
 - **config_store** — takes paths and mounts nothing, so the test only checks its guards;
   its file handling is covered thoroughly by `config_store/test` against real files.
+- **networking** — `mdns_manager` and `ntp_manager` are started *before* any link exists
+  and a service is registered with no network up, which is the property that matters:
+  they subscribe to `net_events` rather than being called by whatever provides
+  connectivity. Nothing in `main` wires WiFi to either of them, and `wifi_manager`'s
+  `PRIV_REQUIRES` names neither.

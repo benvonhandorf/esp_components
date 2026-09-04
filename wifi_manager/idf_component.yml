@@ -1,0 +1,14 @@
+version: "0.1.0"
+description: >-
+  WiFi station and access point with prioritised known networks, scanning,
+  connection timeouts, reconnect backoff and an optional reachability check.
+  Publishes link state as events rather than calling into the services that care,
+  so it depends on nothing that runs over it.
+url: https://github.com/benvonhandorf/esp_components/tree/main/wifi_manager
+repository: https://github.com/benvonhandorf/esp_components.git
+issues: https://github.com/benvonhandorf/esp_components/issues
+tags:
+  - wifi
+  - networking
+dependencies:
+  idf: ">=5.0"

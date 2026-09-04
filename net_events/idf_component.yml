@@ -1,0 +1,14 @@
+version: "0.1.0"
+description: >-
+  Network link state as events on the default loop, so services that care about
+  connectivity (mDNS, SNTP, MQTT, a web server) do not have to be known to the
+  thing that provides it. The link need not be WiFi: anything that posts these
+  events works with every subscriber unchanged.
+url: https://github.com/benvonhandorf/esp_components/tree/main/net_events
+repository: https://github.com/benvonhandorf/esp_components.git
+issues: https://github.com/benvonhandorf/esp_components/issues
+tags:
+  - networking
+  - events
+dependencies:
+  idf: ">=5.0"

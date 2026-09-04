@@ -113,7 +113,10 @@ So, at the point this repository is first pushed and tagged:
    one part of the distribution model this repository cannot currently prove.
 
 A component's **config schema is part of its public interface**, because the generated
-struct's layout comes from it. Adding an optional property that has a `default` is a
+struct's layout comes from it, and its `$id` names the generated type. Prefix that `$id`
+with the component name: a schema `$id` of `wifi_config` generates `wifi_config_t`, which
+is already ESP-IDF's own union for `esp_wifi_set_config()`. `wifi_manager_config` is both
+unambiguous and more accurate — it is the manager's configuration, not the driver's. Adding an optional property that has a `default` is a
 minor bump. Adding to `required`, renaming or removing a property, or changing
 `maxLength`, `js2cType` or `type`, is a major bump — as is changing `$id`, which
 renames the public type.

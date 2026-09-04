@@ -1,0 +1,16 @@
+version: "0.1.0"
+description: >-
+  Sets the system clock from NTP once the network is up. Subscribes to network
+  link events, so it is started once at boot with no sequencing against
+  connectivity, and posts a time-synced event for anything that timestamps
+  records. Applies a POSIX timezone so localtime() is correct from the first sync.
+url: https://github.com/benvonhandorf/esp_components/tree/main/ntp_manager
+repository: https://github.com/benvonhandorf/esp_components.git
+issues: https://github.com/benvonhandorf/esp_components/issues
+tags:
+  - ntp
+  - sntp
+  - time
+  - networking
+dependencies:
+  idf: ">=5.0"

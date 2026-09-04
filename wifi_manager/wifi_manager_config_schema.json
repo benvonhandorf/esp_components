@@ -1,0 +1,120 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "wifi_manager_config",
+  "title": "WiFi station and access point",
+  "type": "object",
+  "required": [
+    "hostname",
+    "known_networks"
+  ],
+  "additionalProperties": false,
+  "properties": {
+    "hostname": {
+      "type": "string",
+      "pattern": "^[a-z0-9][a-z0-9\\-]{0,61}[a-z0-9]$",
+      "maxLength": 40,
+      "description": "Hostname for local discovery; also used as a client identifier"
+    },
+    "instancename": {
+      "type": "string",
+      "maxLength": 63,
+      "default": "",
+      "description": "Instance name used for local discovery"
+    },
+    "known_networks": {
+      "type": "array",
+      "maxItems": 4,
+      "items": {
+        "$ref": "#/$defs/wifi_network"
+      },
+      "description": "Prioritized list of networks to attempt connection to"
+    },
+    "ap_ssid": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 32,
+      "default": "esp-setup",
+      "description": "SSID of the access point served when no known network is reachable"
+    },
+    "ap_password": {
+      "type": "string",
+      "minLength": 8,
+      "maxLength": 63,
+      "default": "configure-me",
+      "description": "Passphrase for that access point; WPA2 requires at least 8 characters"
+    },
+    "ap_channel": {
+      "type": "integer",
+      "minimum": 1,
+      "maximum": 13,
+      "default": 6,
+      "description": "WiFi channel for AP mode",
+      "js2cType": "uint8_t"
+    },
+    "ap_max_connections": {
+      "type": "integer",
+      "minimum": 1,
+      "maximum": 10,
+      "default": 4,
+      "description": "Maximum simultaneous clients in AP mode",
+      "js2cType": "uint8_t"
+    },
+    "ap_hidden": {
+      "type": "boolean",
+      "default": false,
+      "description": "Hide the AP SSID from scans"
+    },
+    "connection_timeout_ms": {
+      "type": "integer",
+      "minimum": 1000,
+      "default": 20000,
+      "description": "Timeout for station mode connection attempt (ms)",
+      "js2cType": "uint32_t",
+      "maximum": 600000
+    },
+    "scan_interval_ms": {
+      "type": "integer",
+      "minimum": 1000,
+      "default": 120000,
+      "description": "Interval between network scans when disconnected (ms)",
+      "js2cType": "uint32_t",
+      "maximum": 3600000
+    },
+    "reachability_host": {
+      "type": "string",
+      "maxLength": 63,
+      "default": "",
+      "description": "Host to ping to confirm the link actually carries traffic. Empty disables the check. An associated station with a DHCP lease can still be unable to reach anything."
+    }
+  },
+  "$defs": {
+    "wifi_network": {
+      "type": "object",
+      "required": [
+        "ssid",
+        "password",
+        "priority"
+      ],
+      "additionalProperties": false,
+      "properties": {
+        "ssid": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 32
+        },
+        "password": {
+          "type": "string",
+          "maxLength": 63,
+          "description": "WPA2 passphrase; empty string for open networks"
+        },
+        "priority": {
+          "type": "integer",
+          "minimum": 0,
+          "description": "Higher value = preferred when multiple known networks are visible",
+          "js2cType": "uint8_t",
+          "maximum": 255
+        }
+      }
+    }
+  }
+}
