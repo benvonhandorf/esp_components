@@ -1,0 +1,140 @@
+#!/usr/bin/env python3
+#
+# MIT License
+#
+# Copyright (c) 2020 Alex Badics
+#
+# Permission is hereby granted, free of charge, to any person obtaining a copy
+# of this software and associated documentation files (the "Software"), to deal
+# in the Software without restriction, including without limitation the rights
+# to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+# copies of the Software, and to permit persons to whom the Software is
+# furnished to do so, subject to the following conditions:
+#
+# The above copyright notice and this permission notice shall be included in
+# all copies or substantial portions of the Software.
+#
+# THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+# IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+# FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+# AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+# LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+# OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
+# SOFTWARE.
+#
+from typing import Any
+
+from .base import Generator, CType, SchemaError, GeneratorInitParameters
+from .code_block_printer import CodeBlockPrinter
+
+
+class ArrayType(CType):
+    def __init__(self, type_name: str, description: str | None, item_type: CType, max_items: int) -> None:
+        super().__init__(type_name, description)
+        self.item_type = item_type
+        self.max_items = max_items
+
+    def generate_type_declaration_impl(self, out_file: CodeBlockPrinter) -> None:
+        self.item_type.generate_type_declaration(out_file)
+
+        out_file.print(f"typedef struct {self.type_name}_s {{")
+        with out_file.indent():
+            out_file.print_with_docstring("uint64_t n;", "The number of elements in the array")
+            self.item_type.generate_field_declaration(
+                f"items[{self.max_items}]", out_file
+            )
+        out_file.print(f"}} {self.type_name};")
+        out_file.print("")
+
+    def __eq__(self, other: object) -> bool:
+        return (
+            super().__eq__(other) and
+            isinstance(other, ArrayType) and
+            self.max_items == other.max_items and
+            self.item_type == other.item_type
+        )
+
+
+class ArrayGenerator(Generator):
+    JSON_FIELDS = Generator.JSON_FIELDS + (
+        "minItems",
+        "maxItems",
+    )
+    minItems: int = 0
+    maxItems: int | None = None
+
+    def __init__(self, schema: dict[str, Any], parameters: GeneratorInitParameters) -> None:
+        super().__init__(schema, parameters)
+        if self.maxItems is None:
+            raise SchemaError(self, "Arrays must have 'maxItems'")
+
+        if 'items' not in schema:
+            raise SchemaError(self, "Missing field for array declaration: 'items'")
+        if isinstance(schema['items'], list):
+            raise SchemaError(self, "Tuple declarations (when 'items' itself is an array) are not supported")
+        self.item_generator = parameters.generator_factory.get_generator_for(
+            schema["items"],
+            parameters.with_suffix("items", self.type_name, "item"),
+        )
+        if self.item_generator.c_type is None:
+            raise SchemaError(self, "Array items must store a value")
+        self.c_type = ArrayType(
+            self.type_name,
+            self.description,
+            self.item_generator.c_type,
+            self.maxItems
+        )
+        self.c_type = parameters.type_cache.try_get_cached(self.c_type, self.path_in_schema)
+
+    @classmethod
+    def can_parse_schema(cls, schema: dict[str, Any]) -> bool:
+        return schema.get('type') == 'array'
+
+    def generate_parser_call(self, out_var_name: str, out_file: CodeBlockPrinter) -> None:
+        parser_call = f"parse_{self.parser_name}(parse_state, {out_var_name})"
+        with out_file.if_block(parser_call):
+            out_file.print("return true;")
+
+    def generate_range_checks(self, out_file: CodeBlockPrinter) -> None:
+        with out_file.if_block(f"n > {self.maxItems}"):
+            self.generate_logged_error(
+                [f"Array '%s' too large. Length: %i. Maximum length: {self.maxItems}.", "parse_state->current_key", "n"],
+                out_file
+            )
+        if self.minItems:
+            with out_file.if_block(f"n < {self.minItems}"):
+                self.generate_logged_error(
+                    [f"Array '%s' too small. Length: %i. Minimum length: {self.minItems}.", "parse_state->current_key", "n"],
+                    out_file
+                )
+
+    def generate_parser_bodies(self, out_file: CodeBlockPrinter) -> None:
+        self.item_generator.generate_parser_bodies(out_file)
+
+        out_file.print(f"static bool parse_{self.parser_name}(parse_state_t *parse_state, {self.c_type} *out)")
+        with out_file.code_block():
+            with out_file.if_block("check_type(parse_state, JSMN_ARRAY)"):
+                out_file.print("return true;")
+            out_file.print("const int n = parse_state->tokens[parse_state->current_token].size;")
+            self.generate_range_checks(out_file)
+            out_file.print("out->n = n;")
+            out_file.print("parse_state->current_token += 1;")
+            with out_file.for_block("int i = 0; i < n; ++i"):
+                self.item_generator.generate_parser_call(
+                    "&out->items[i]",
+                    out_file
+                )
+            out_file.print("return false;")
+        out_file.print("")
+
+    def has_default_value(self) -> bool:
+        return super().has_default_value() or self.minItems == 0
+
+    def generate_set_default_value(self, out_var_name: str, out_file: CodeBlockPrinter) -> None:
+        if self.generate_js2c_default_value(out_var_name, out_file):
+            return
+        out_file.print(f"{out_var_name}.n = 0;")
+
+    def max_token_num(self) -> int:
+        assert self.maxItems is not None, "__init__ rejects an array without maxItems."
+        return self.maxItems * self.item_generator.max_token_num() + 1

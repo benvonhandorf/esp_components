@@ -1,0 +1,152 @@
+#!/usr/bin/env python3
+#
+# MIT License
+#
+# Copyright (c) 2020 Alex Badics
+#
+# Permission is hereby granted, free of charge, to any person obtaining a copy
+# of this software and associated documentation files (the "Software"), to deal
+# in the Software without restriction, including without limitation the rights
+# to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+# copies of the Software, and to permit persons to whom the Software is
+# furnished to do so, subject to the following conditions:
+#
+# The above copyright notice and this permission notice shall be included in
+# all copies or substantial portions of the Software.
+#
+# THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+# IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+# FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+# AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+# LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+# OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
+# SOFTWARE.
+#
+import re
+
+from typing import Any
+
+from .base import Generator, CType, SchemaError, GeneratorInitParameters
+from .code_block_printer import CodeBlockPrinter
+
+
+class EnumType(CType):
+    def __init__(self, type_name: str, description: str | None, enum_labels: list[str]) -> None:
+        super().__init__(type_name, description)
+        self.enum_labels = enum_labels
+
+    def generate_type_declaration_impl(self, out_file: CodeBlockPrinter) -> None:
+        out_file.print(f"typedef enum {self.type_name}_e{{")
+        with out_file.indent():
+            for enum_label in self.enum_labels[:-1]:
+                out_file.print(f"{enum_label},")
+            out_file.print(self.enum_labels[-1])
+        out_file.print(f"}} {self.type_name};")
+        out_file.print("")
+
+    def __eq__(self, other: object) -> bool:
+        return (
+            super().__eq__(other) and
+            isinstance(other, EnumType) and
+            self.enum_labels == other.enum_labels
+        )
+
+
+class EnumGenerator(Generator):
+    JSON_FIELDS = Generator.JSON_FIELDS + (
+        "enum",
+        "default",
+        "convertLabelsToSnakeCase",
+    )
+    # can_parse_schema() requires it, so the JSON_FIELDS loop always sets it.
+    enum: list[str]
+    default: str | None = None
+    convertLabelsToSnakeCase: bool = True
+
+    SANITIZE_RE = re.compile("[^A-Za-z0-9_]")
+    CAMEL_CASE_RE = re.compile(
+        "("
+        "(?<=[a-z])(?=[A-Z])|"
+        "(?<=[0-9])(?=[a-zA-Z])|"
+        "(?<=[a-zA-Z])(?=[0-9])"
+        ")"
+    )
+
+    def __init__(self, schema: dict[str, Any], parameters: GeneratorInitParameters) -> None:
+        super().__init__(schema, parameters)
+        if self.js2cParseFunction is not None:
+            if self.js2cType is None:
+                raise SchemaError(self, "js2cParseFunction needs js2cType, as its output type cannot be guessed")
+            self.c_type = CType(self.js2cType, self.description)
+        else:
+            self.c_type = EnumType(self.type_name, self.description, [self.convert_enum_label(enum_label) for enum_label in self.enum])
+        self.c_type = parameters.type_cache.try_get_cached(self.c_type, self.path_in_schema)
+
+    @classmethod
+    def can_parse_schema(cls, schema: dict[str, Any]) -> bool:
+        return schema.get('type') == 'string' and 'enum' in schema
+
+    def convert_enum_label(self, enum_label: str) -> str:
+        if self.convertLabelsToSnakeCase:
+            enum_label = self.CAMEL_CASE_RE.sub(r"_", enum_label)
+            enum_label = enum_label.upper()
+        prefix = self.type_name.removesuffix("_t").upper()
+        prefixed = f"{prefix}_{enum_label}"
+        sanitized = self.SANITIZE_RE.sub("_", prefixed)
+        return sanitized
+
+    def generate_parser_call(self, out_var_name: str, out_file: CodeBlockPrinter) -> None:
+        parser_call = f"parse_{self.parser_name}(parse_state, {out_var_name})"
+        with out_file.if_block(parser_call):
+            out_file.print("return true;")
+
+    def generate_parser_bodies(self, out_file: CodeBlockPrinter) -> None:
+        out_file.print(f"static bool parse_{self.parser_name}(parse_state_t *parse_state, {self.c_type} *out)")
+        with out_file.code_block():
+            with out_file.if_block("check_type(parse_state, JSMN_STRING)"):
+                out_file.print("return true;")
+
+            if self.js2cParseFunction is not None:
+                # A single membership check: the parser treats every label the same, so there is nothing to dispatch on.
+                is_a_label = " || ".join(f'current_string_is(parse_state, "{enum_label}")' for enum_label in self.enum)
+                with out_file.if_block(is_a_label):
+                    self.generate_custom_parser_call(
+                        "CURRENT_STRING(parse_state), CURRENT_STRING_LENGTH(parse_state), out",
+                        "%.*s",
+                        ["CURRENT_STRING_LENGTH(parse_state)", "CURRENT_STRING(parse_state)"],
+                        out_file)
+                out_file.print("else")
+            else:
+                for enum_label in self.enum:
+                    with out_file.if_block(f'current_string_is(parse_state, "{enum_label}")'):
+                        out_file.print(f"*out = {self.convert_enum_label(enum_label)};")
+                    out_file.print("else")
+
+            with out_file.code_block():
+                self.generate_logged_error(["Unknown enum value in '%s': %.*s", "parse_state->current_key", "CURRENT_STRING_FOR_ERROR(parse_state)"], out_file)
+
+            out_file.print("parse_state->current_token += 1;")
+            out_file.print("return false;")
+        out_file.print("")
+
+    def has_default_value(self) -> bool:
+        return super().has_default_value() or self.default is not None
+
+    def generate_set_default_value(self, out_var_name: str, out_file: CodeBlockPrinter) -> None:
+        if self.generate_js2c_default_value(out_var_name, out_file):
+            return
+        if self.default not in self.enum:
+            raise SchemaError(self, f"The enum default value '{self.default}' is not in the allowed values {self.enum}")
+        if self.js2cParseFunction is not None:
+            # Own scope: the parser call declares a variable, and defaults can be emitted into a shared one.
+            with out_file.code_block(standalone=True):
+                self.generate_custom_parser_call(
+                    f'"{self.default}", {len(self.default)}, &{out_var_name}',
+                    "%.*s",
+                    [str(len(self.default)), f'"{self.default}"'],
+                    out_file)
+        else:
+            out_file.print(f"{out_var_name} = {self.convert_enum_label(self.default)};")
+
+    def max_token_num(self) -> int:
+        return 1

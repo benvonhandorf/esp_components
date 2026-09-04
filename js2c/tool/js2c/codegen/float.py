@@ -1,0 +1,94 @@
+#!/usr/bin/env python3
+#
+# MIT License
+#
+# Copyright (c) 2020 Alex Badics
+#
+# Permission is hereby granted, free of charge, to any person obtaining a copy
+# of this software and associated documentation files (the "Software"), to deal
+# in the Software without restriction, including without limitation the rights
+# to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+# copies of the Software, and to permit persons to whom the Software is
+# furnished to do so, subject to the following conditions:
+#
+# The above copyright notice and this permission notice shall be included in
+# all copies or substantial portions of the Software.
+#
+# THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+# IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+# FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+# AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+# LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+# OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
+# SOFTWARE.
+#
+from typing import Any
+
+from .base import Generator, CType, GeneratorInitParameters
+from .code_block_printer import CodeBlockPrinter
+
+
+class FloatGenerator(Generator):
+    JSON_FIELDS = Generator.JSON_FIELDS + (
+        "minimum",
+        "maximum",
+        "exclusiveMinimum",
+        "exclusiveMaximum",
+        "default",
+    )
+
+    minimum: float | None = None
+    maximum: float | None = None
+    exclusiveMinimum: float | None = None
+    exclusiveMaximum: float | None = None
+    default: float | None = None
+
+    def __init__(self, schema: dict[str, Any], parameters: GeneratorInitParameters) -> None:
+        super().__init__(schema, parameters)
+        self.c_type = CType("double", self.description)
+
+    @classmethod
+    def can_parse_schema(cls, schema: dict[str, Any]) -> bool:
+        return schema.get('type') == 'number'
+
+    @classmethod
+    def generate_range_check(
+        cls,
+        check_number: float | None,
+        out_var_name: str,
+        check_operator: str,
+        inverted_check_operator: str,
+        out_file: CodeBlockPrinter,
+    ) -> None:
+        if check_number is None:
+            return
+        with out_file.if_block(f"(*{out_var_name}) {inverted_check_operator} {check_number}"):
+            # Roll back the token, as the value was not actually correct
+            out_file.print("parse_state->current_token -= 1;")
+            cls.generate_logged_error(
+                [
+                    f"Floating point value %.15g in '%s' out of range. It must be {check_operator} {check_number}.",
+                    f"(*{out_var_name})",
+                    "parse_state->current_key",
+                ],
+                out_file
+            )
+
+    def generate_parser_call(self, out_var_name: str, out_file: CodeBlockPrinter) -> None:
+        with out_file.if_block(f"builtin_parse_double(parse_state, {out_var_name})"):
+            out_file.print("return true;")
+        self.generate_range_check(self.minimum, out_var_name, ">=", "<", out_file)
+        self.generate_range_check(self.maximum, out_var_name, "<=", ">", out_file)
+        self.generate_range_check(self.exclusiveMinimum, out_var_name, ">", "<=", out_file)
+        self.generate_range_check(self.exclusiveMaximum, out_var_name, "<", ">=", out_file)
+
+    def has_default_value(self) -> bool:
+        return super().has_default_value() or self.default is not None
+
+    def generate_set_default_value(self, out_var_name: str, out_file: CodeBlockPrinter) -> None:
+        if self.generate_js2c_default_value(out_var_name, out_file):
+            return
+        out_file.print(f"{out_var_name} = {self.default};")
+
+    def max_token_num(self) -> int:
+        return 1

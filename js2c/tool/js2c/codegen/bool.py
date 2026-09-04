@@ -1,0 +1,62 @@
+#!/usr/bin/env python3
+#
+# MIT License
+#
+# Copyright (c) 2020 Alex Badics
+#
+# Permission is hereby granted, free of charge, to any person obtaining a copy
+# of this software and associated documentation files (the "Software"), to deal
+# in the Software without restriction, including without limitation the rights
+# to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+# copies of the Software, and to permit persons to whom the Software is
+# furnished to do so, subject to the following conditions:
+#
+# The above copyright notice and this permission notice shall be included in
+# all copies or substantial portions of the Software.
+#
+# THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+# IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+# FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+# AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+# LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+# OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
+# SOFTWARE.
+#
+from typing import Any
+
+from .base import Generator, CType, SchemaError, GeneratorInitParameters
+from .code_block_printer import CodeBlockPrinter
+
+
+class BoolGenerator(Generator):
+    JSON_FIELDS = Generator.JSON_FIELDS + (
+        "default",
+    )
+    default: bool | None = None
+
+    def __init__(self, schema: dict[str, Any], parameters: GeneratorInitParameters) -> None:
+        super().__init__(schema, parameters)
+        if self.default is not None and not isinstance(self.default, bool):
+            raise SchemaError(self, "Boolean types should have a boolean as a default")
+        self.c_type = CType("bool", self.description)
+
+    @classmethod
+    def can_parse_schema(cls, schema: dict[str, Any]) -> bool:
+        return schema.get('type') == 'boolean'
+
+    def generate_parser_call(self, out_var_name: str, out_file: CodeBlockPrinter) -> None:
+        parser_call = f"builtin_parse_bool(parse_state, {out_var_name})"
+        with out_file.if_block(parser_call):
+            out_file.print("return true;")
+
+    def has_default_value(self) -> bool:
+        return super().has_default_value() or self.default is not None
+
+    def generate_set_default_value(self, out_var_name: str, out_file: CodeBlockPrinter) -> None:
+        if self.generate_js2c_default_value(out_var_name, out_file):
+            return
+        default_value = 'true' if self.default else 'false'
+        out_file.print(f"{out_var_name} = {default_value};")
+
+    def max_token_num(self) -> int:
+        return 1

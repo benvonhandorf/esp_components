@@ -1,0 +1,229 @@
+#!/usr/bin/env python3
+#
+# MIT License
+#
+# Copyright (c) 2020 Alex Badics
+#
+# Permission is hereby granted, free of charge, to any person obtaining a copy
+# of this software and associated documentation files (the "Software"), to deal
+# in the Software without restriction, including without limitation the rights
+# to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+# copies of the Software, and to permit persons to whom the Software is
+# furnished to do so, subject to the following conditions:
+#
+# The above copyright notice and this permission notice shall be included in
+# all copies or substantial portions of the Software.
+#
+# THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+# IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+# FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+# AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+# LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+# OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
+# SOFTWARE.
+#
+import collections
+from collections.abc import Sequence
+
+from typing import Any
+
+from .base import Generator, CType, SchemaError, C_RESERVED, GeneratorInitParameters
+from .code_block_printer import CodeBlockPrinter
+
+
+class ObjectType(CType):
+    def __init__(self, type_name: str, description: str | None, fields: collections.OrderedDict[str, CType | None]) -> None:
+        super().__init__(type_name, description)
+        assert isinstance(fields, collections.OrderedDict), \
+            "fields must be an OrderedDict, as we depend on the field order check of == in __eq__"
+        self.fields = fields
+
+    def generate_type_declaration_impl(self, out_file: CodeBlockPrinter) -> None:
+        for field_name, field_generator in self.fields.items():
+            if field_generator is None:
+                continue
+            field_generator.generate_type_declaration(out_file)
+
+        out_file.print(f"typedef struct {self.type_name}_s {{")
+        with out_file.indent():
+            for field_name, field_generator in self.fields.items():
+                if field_generator is None:
+                    continue
+                field_generator.generate_field_declaration(
+                    field_name,
+                    out_file
+                )
+        out_file.print(f"}} {self.type_name};")
+        out_file.print("")
+
+    def __eq__(self, other: object) -> bool:
+        return (
+            super().__eq__(other) and
+            isinstance(other, ObjectType) and
+            self.fields == other.fields
+        )
+
+
+class ObjectGenerator(Generator):
+    JSON_FIELDS = Generator.JSON_FIELDS + (
+        "required",
+        "additionalProperties",
+    )
+    required: Sequence[str] = ()
+    additionalProperties: bool = True
+
+    def __init__(self, schema: dict[str, Any], parameters: GeneratorInitParameters) -> None:
+        super().__init__(schema, parameters)
+        self.fields = collections.OrderedDict()
+        if 'properties' not in schema:
+            raise SchemaError(self, "Missing field for object declaration: 'properties'")
+        for field_name, field_schema in schema['properties'].items():
+            if field_name in C_RESERVED:
+                raise SchemaError(self, f"Property name '{field_name}' is a reserved C word")
+            self.fields[field_name] = parameters.generator_factory.get_generator_for(
+                field_schema,
+                parameters.with_suffix("properties." + field_name, self.type_name, field_name),
+            )
+        self.c_type = ObjectType(
+            self.type_name,
+            self.description,
+            collections.OrderedDict((k, v.c_type) for k, v in self.fields.items())
+        )
+        self.c_type = parameters.type_cache.try_get_cached(self.c_type, self.path_in_schema)
+
+        if self.additionalProperties and not self.settings.allow_additional_properties:
+            raise SchemaError(
+                self,
+                "Either set 'additionalProperties' to false or  use the "
+                "--allow-additional-properties command line argument for generation."
+            )
+
+    @classmethod
+    def can_parse_schema(cls, schema: dict[str, Any]) -> bool:
+        return schema.get('type') == 'object'
+
+    def generate_parser_call(self, out_var_name: str, out_file: CodeBlockPrinter) -> None:
+        parser_call = f"parse_{self.parser_name}(parse_state, {out_var_name})"
+        with out_file.if_block(parser_call):
+            out_file.print("return true;")
+
+    def generate_seen_flags(self, out_file: CodeBlockPrinter) -> None:
+        for field_name in self.fields:
+            out_file.print(f"bool seen_{field_name} = false;")
+
+    def generate_default_field_setting(self, out_file: CodeBlockPrinter) -> None:
+        for field_name, field_generator in self.fields.items():
+            if not field_generator.has_default_value():
+                continue
+            with out_file.if_block(f"!seen_{field_name}"):
+                field_generator.generate_set_default_value(
+                    f"out->{field_name}",
+                    out_file
+                )
+
+    def generate_required_checks(self, out_file: CodeBlockPrinter) -> None:
+        for field_name, field_generator in self.fields.items():
+            if field_generator.has_default_value():
+                continue
+            if field_name not in self.required:
+                # A const stores nothing; an absent one just goes unchecked, like in JSON Schema.
+                if field_generator.c_type is None:
+                    continue
+                raise SchemaError(
+                    self,
+                    f"Field '{field_name}' must be required or have a default value"
+                )
+            with out_file.if_block(f"!seen_{field_name}"):
+                self.generate_logged_error(f"Missing required field in '%s': {field_name}", out_file)
+
+    def generate_key_children_check(self, out_file: CodeBlockPrinter) -> None:
+        with out_file.if_block("CURRENT_TOKEN(parse_state).size > 1"):
+            self.generate_logged_error(
+                [
+                    "Missing separator between values in '%s', after key: %.*s",
+                    "parse_state->current_key",
+                    "CURRENT_STRING_FOR_ERROR(parse_state)"
+                ],
+                out_file
+            )
+
+        with out_file.if_block("CURRENT_TOKEN(parse_state).size < 1"):
+            self.generate_logged_error(
+                [
+                    "Missing value in '%s', after key: %.*s",
+                    "parse_state->current_key",
+                    "CURRENT_STRING_FOR_ERROR(parse_state)"
+                ],
+                out_file
+            )
+
+    def generate_field_parsers(self, out_file: CodeBlockPrinter) -> None:
+        self.generate_key_children_check(out_file)
+        for field_name, field_generator in self.fields.items():
+            with out_file.if_block(f'current_string_is(parse_state, "{field_name}")'):
+                with out_file.if_block(f"seen_{field_name}"):
+                    self.generate_logged_error(f"Duplicate field definition in '%s': {field_name}", out_file)
+                out_file.print(f"seen_{field_name} = true;")
+                out_file.print("parse_state->current_token += 1;")
+                out_file.print("const char* saved_key = parse_state->current_key;")
+                out_file.print(f'parse_state->current_key = "{field_name}";')
+                field_generator.generate_parser_call(
+                    f"&out->{field_name}",
+                    out_file
+                )
+                out_file.print("parse_state->current_key = saved_key;")
+            out_file.print("else")
+        with out_file.code_block():
+            if self.settings.allow_additional_properties:
+                out_file.print("parse_state->current_token += 1;")
+                out_file.print("builtin_skip(parse_state);")
+            else:
+                self.generate_logged_error(["Unknown field in '%s': %.*s", "parse_state->current_key", "CURRENT_STRING_FOR_ERROR(parse_state)"], out_file)
+
+    def generate_parser_bodies(self, out_file: CodeBlockPrinter) -> None:
+        for field_generator in self.fields.values():
+            field_generator.generate_parser_bodies(out_file)
+
+        out_file.print(f"static bool parse_{self.parser_name}(parse_state_t *parse_state, {self.c_type} *out)")
+        with out_file.code_block():
+            with out_file.if_block("check_type(parse_state, JSMN_OBJECT)"):
+                out_file.print("return true;")
+
+            self.generate_seen_flags(out_file)
+
+            out_file.print("const int object_start_token = parse_state->current_token;")
+            out_file.print("const uint64_t n = parse_state->tokens[parse_state->current_token].size;")
+            out_file.print("parse_state->current_token += 1;")
+            with out_file.for_block("uint64_t i = 0; i < n; ++i"):
+                self.generate_field_parsers(out_file)
+
+            # This little magic is needed because both required checks and default setting
+            # use CURRENT_TOKEN, which may be past the token list by now, and also we want
+            # to report the issue at the start of the object.
+            out_file.print("const int saved_current_token = parse_state->current_token;")
+            out_file.print("parse_state->current_token = object_start_token;")
+
+            self.generate_required_checks(out_file)
+            self.generate_default_field_setting(out_file)
+
+            out_file.print("parse_state->current_token = saved_current_token;")
+
+            out_file.print("return false;")
+        out_file.print("")
+
+    def has_default_value(self) -> bool:
+        if super().has_default_value():
+            return True
+        return len(self.required) == 0 and all(field_generator.has_default_value() for field_generator in self.fields.values())
+
+    def generate_set_default_value(self, out_var_name: str, out_file: CodeBlockPrinter) -> None:
+        if self.generate_js2c_default_value(out_var_name, out_file):
+            return
+        for field_name, field_generator in self.fields.items():
+            field_generator.generate_set_default_value(
+                f"{out_var_name}.{field_name}",
+                out_file
+            )
+
+    def max_token_num(self) -> int:
+        return sum(1 + field_generator.max_token_num() for field_generator in self.fields.values()) + 1

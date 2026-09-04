@@ -1,0 +1,12 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "app_config",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["config_version", "net"],
+  "properties": {
+    "config_version": { "type": "integer", "minimum": 1, "maximum": 1 },
+    "broker_port":    { "$ref": "shared_defs.json#/$defs/port" },
+    "net":            { "js2cType": "raw" }
+  }
+}

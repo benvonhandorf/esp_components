@@ -1,0 +1,19 @@
+version: "0.1.0"
+description: >-
+  JSON Schema to C code generation for ESP-IDF components: a vendored
+  json_schema_to_c generator, the jsmn runtime the generated parsers need, and a
+  CMake API (js2c_generate/js2c_publish_schema) exported through
+  project_include.cmake so a component in any repository can generate its own
+  config parser.
+url: https://github.com/benvonhandorf/esp_components
+repository: git://github.com/benvonhandorf/esp_components.git
+issues: https://github.com/benvonhandorf/esp_components/issues
+tags:
+  - json
+  - schema
+  - codegen
+  - config
+dependencies:
+  # project_include.cmake uses idf_build_get_property(... BUILD_DIR/PYTHON) and
+  # cmake_parse_arguments; 5.0 is the floor this has been verified against.
+  idf: ">=5.0"

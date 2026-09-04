@@ -1,0 +1,7 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$defs": {
+    "port": { "$id": "port", "type": "integer", "minimum": 1, "maximum": 65535,
+              "js2cType": "uint16_t", "default": 1883 }
+  }
+}
