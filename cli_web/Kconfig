@@ -1,0 +1,30 @@
+menu "cli_web: browser transport for the shell"
+
+    config CLI_WEB_MAX_OPEN_SOCKETS
+        int "Maximum simultaneous HTTP sockets"
+        default 7
+        range 2 16
+        help
+            Every open browser tab holds a WebSocket for as long as it is on the
+            page, so the httpd default of 4 runs out with a couple of tabs. Only
+            applied when cli_web starts its own server; a borrowed server keeps
+            whatever its owner configured.
+
+    config CLI_WEB_BROADCAST_CHUNK
+        int "Maximum bytes per WebSocket frame"
+        default 512
+        range 128 4096
+        help
+            Output longer than this is split across frames. Each chunk is
+            malloc'd and handed to the server task, so larger values mean fewer,
+            bigger allocations.
+
+    config CLI_WEB_MAX_COMMAND_LEN
+        int "Maximum command length accepted from a browser (bytes)"
+        default 512
+        range 64 2048
+        help
+            Frames longer than this are ignored rather than truncated: a command
+            cut in half is more dangerous than one that never ran.
+
+endmenu

@@ -89,6 +89,25 @@ cd tests/consumer && idf.py set-target esp32c3 && idf.py build
 One tag series per component: `<name>-v<major>.<minor>.<patch>`. Bump the version in
 `idf_component.yml` and add a `CHANGELOG.md` entry in the same commit as the change.
 
+## Publishing — required before the first release
+
+**Inter-component dependencies are not yet declared in `idf_component.yml`.** Today the
+build is driven only by `REQUIRES`/`PRIV_REQUIRES` in each `CMakeLists.txt`, which is what
+actually links, and every component is found locally through `EXTRA_COMPONENT_DIRS`. That
+is enough in this repository and not enough for anyone outside it: a project depending on
+`cli` with `git:` + `path: cli` receives that directory only, and would not get `diag`.
+
+So, at the point this repository is first pushed and tagged:
+
+1. Create the per-component tags (`diag-v0.1.0`, `cli-v0.1.0`, …).
+2. Add each sibling dependency to the dependent's `idf_component.yml`, e.g. `cli` gains
+   `diag` with `git:`, `path: diag` and `version: diag-v0.1.0`. For a git dependency the
+   component manager treats `version` as a **git ref**, not a semver range — which is why
+   this cannot be done before the tags exist.
+3. Re-run `tests/consumer` against the published tags rather than
+   `EXTRA_COMPONENT_DIRS`. Only that exercises the path a stranger takes, and it is the
+   one part of the distribution model this repository cannot currently prove.
+
 A component's **config schema is part of its public interface**, because the generated
 struct's layout comes from it. Adding an optional property that has a `default` is a
 minor bump. Adding to `required`, renaming or removing a property, or changing

@@ -2,6 +2,7 @@
 #include <string.h>
 
 #include "cli.h"
+#include "cli_web.h"
 #include "demo_net.h"
 #include "diag.h"
 #include "js2c_error_capture.h"
@@ -75,4 +76,13 @@ void app_main(void)
     /* Brings up the shell on the serial console. Registering groups first means
      * the banner and tab completion see them. */
     ESP_ERROR_CHECK(cli_start(NULL));
+
+    /*
+     * cli_web is not started here: it needs an IP address first, and this test
+     * never joins a network. Referencing it is enough to prove it links, which
+     * is what the build is checking.
+     */
+    (void)cli_web_start;
+    (void)cli_web_stop;
+    (void)cli_web_server;
 }

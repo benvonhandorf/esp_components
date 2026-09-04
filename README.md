@@ -24,6 +24,7 @@ not drag in changes to the others.
 | [js2c](js2c/) | JSON Schema to C config parsers: vendored generator, jsmn runtime, and a CMake API components use to generate their own parser |
 | [diag](diag/) | Output fan-out: one line reaches stdout and every registered sink, so serial, web and MQTT show the same text. Also captures `ESP_LOGx` |
 | [cli](cli/) | Two-token command shell (`gpio set 19 true`) with registerable groups, one command executor, and no navigation state |
+| [cli_web](cli_web/) | Browser transport for `cli`: an embedded terminal page and a WebSocket, sharing one session with the serial port |
 
 ## Testing
 

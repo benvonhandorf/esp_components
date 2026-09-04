@@ -1,0 +1,3 @@
+# cli_web serves its terminal over a WebSocket, which esp_http_server compiles
+# out unless this is set. Without it the build fails on httpd_ws_* being absent.
+CONFIG_HTTPD_WS_SUPPORT=y
