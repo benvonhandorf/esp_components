@@ -7,6 +7,8 @@
 #include "app_config_sections.h"  /* generated: APP_CONFIG_SECTIONS(X) */
 #include "config_store.h"
 #include "mdns_manager.h"
+#include "mqtt_log_sink.h"
+#include "mqtt_manager.h"
 #include "net_events.h"
 #include "ntp_manager.h"
 #include "wifi_manager.h"
@@ -167,6 +169,57 @@ static void check_networking(void)
            "events have readable names");
 }
 
+/* --- mqtt: nothing about it knows what this device does --------------------- */
+
+static int relay_messages;
+
+static void on_relay_message(const char *topic, size_t topic_len,
+                             const char *data, size_t data_len, void *ctx)
+{
+    (void)topic; (void)topic_len; (void)data; (void)data_len; (void)ctx;
+    relay_messages++;
+}
+
+static void check_mqtt(void)
+{
+    mqtt_manager_config_t cfg = {0};
+    snprintf(cfg.uri, sizeof(cfg.uri), "mqtt://broker.invalid:1883");
+    snprintf(cfg.topic_prefix, sizeof(cfg.topic_prefix), "sensor/$DEVICE$");
+    snprintf(cfg.lwt_suffix, sizeof(cfg.lwt_suffix), "online");
+    snprintf(cfg.lwt_online, sizeof(cfg.lwt_online), "1");
+    snprintf(cfg.lwt_offline, sizeof(cfg.lwt_offline), "0");
+    cfg.keepalive_s = 120;
+    cfg.lwt_qos = 1;
+
+    /* $DEVICE$ with no device name would collapse a topic level and publish to a
+     * plausible-looking wrong topic, so it is refused rather than substituted. */
+    expect(mqtt_manager_start(&cfg, NULL) == ESP_ERR_INVALID_ARG,
+           "$DEVICE$ without a device name is refused");
+
+    expect(mqtt_manager_start(&cfg, "unit-01") == ESP_OK, "mqtt_manager starts");
+    expect(strcmp(mqtt_manager_topic_prefix(), "sensor/unit-01") == 0,
+           "$DEVICE$ substituted into the topic prefix");
+    expect(!mqtt_manager_is_connected(), "not connected without a broker");
+
+    /* Domain knowledge enters through the registry, not through this component's
+     * headers: the predecessor included relay_control.h and hardcoded the topic. */
+    expect(mqtt_manager_subscribe("relays", 0, on_relay_message, NULL) == ESP_OK,
+           "a handler can be registered before any connection");
+    expect(mqtt_manager_subscribe("cmd/+", 1, on_relay_message, NULL) == ESP_OK,
+           "a wildcard filter can be registered");
+
+    /* Nothing is queued for a broker that is not there. */
+    expect(mqtt_manager_publish("status", "{}", 2, 0, false) == ESP_ERR_INVALID_STATE,
+           "publishing while disconnected reports it");
+
+    expect(mqtt_log_sink_start("log", 0) == ESP_OK, "the log sink attaches to diag");
+    diag_printf("this line goes nowhere while disconnected\n");
+    expect(mqtt_log_sink_dropped() > 0, "and is counted as dropped, not lost silently");
+    expect(mqtt_log_sink_stop() == ESP_OK, "the log sink detaches");
+
+    expect(mqtt_manager_stop() == ESP_OK, "mqtt_manager stops");
+}
+
 /* --- cli: a component shipping its own command group ----------------------- */
 
 static int cmd_demo_show(int argc, char **argv)
@@ -193,6 +246,7 @@ void app_main(void)
     check_js2c();
     check_config();
     check_networking();
+    check_mqtt();
 
     ESP_ERROR_CHECK(diag_init(NULL));
     ESP_ERROR_CHECK(cli_register_group(&demo_group));

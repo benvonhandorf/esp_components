@@ -1,0 +1,19 @@
+version: "0.1.0"
+description: >-
+  MQTT client with a topic-handler registry, last-will/birth messages and an
+  optional log sink. Knows nothing about what the device does: topics are
+  registered and published by the application, under a configurable prefix that
+  substitutes the device name so one configuration can serve a fleet. Connects
+  itself when the network comes up.
+url: https://github.com/benvonhandorf/esp_components/tree/main/mqtt_manager
+repository: https://github.com/benvonhandorf/esp_components.git
+issues: https://github.com/benvonhandorf/esp_components/issues
+tags:
+  - mqtt
+  - networking
+  - logging
+dependencies:
+  idf: ">=5.0"
+  # esp-mqtt is no longer bundled with ESP-IDF: in v6.0 components/mqtt holds only
+  # test_apps and the library itself moved to the registry.
+  espressif/mqtt: "^1.0"

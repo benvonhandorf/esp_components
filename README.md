@@ -30,14 +30,14 @@ not drag in changes to the others.
 | [wifi_manager](wifi_manager/) | Station and AP, prioritised known networks, reconnect backoff, optional reachability ping. Depends on nothing that runs over it |
 | [mdns_manager](mdns_manager/) | Advertises the device and its services by name; registration is data, not a weak symbol |
 | [ntp_manager](ntp_manager/) | Sets the clock from NTP once the link is up, and posts a time-synced event |
+| [mqtt_manager](mqtt_manager/) | MQTT with a topic-handler registry, last-will/birth messages and an optional log sink; knows nothing about what the device does |
 
 ## Testing
 
 Two kinds, and the distinction matters:
 
 - **`<component>/test/`** — host tests, plain `gcc`, no ESP-IDF and no hardware.
-  `make -C js2c/test`, `make -C cli/test`, `make -C config_store/test`. They compile the
-  *real* sources, never a copy of them.
+  one `make` per component. They compile the *real* sources, never a copy of them.
 - **`tests/consumer/`** — an ESP-IDF project that lives outside every component and
   reaches them only through `EXTRA_COMPONENT_DIRS`. This is the acceptance test for
   reuse: an in-tree build cannot prove a component is self-contained, because `main`
@@ -47,6 +47,7 @@ Two kinds, and the distinction matters:
 make -C js2c/test
 make -C cli/test
 make -C config_store/test
+make -C mqtt_manager/test
 cd tests/consumer && idf.py set-target esp32s3 && idf.py build
 ```
 

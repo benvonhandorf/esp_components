@@ -1,0 +1,72 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "mqtt_manager_config",
+  "title": "MQTT client",
+  "type": "object",
+  "required": ["uri", "topic_prefix"],
+  "additionalProperties": false,
+  "properties": {
+    "uri": {
+      "type": "string",
+      "maxLength": 96,
+      "description": "Broker URI including scheme and port, e.g. mqtt://broker.local:1883"
+    },
+    "username": {
+      "type": "string",
+      "maxLength": 32,
+      "default": "",
+      "description": "Broker username; empty for an anonymous connection"
+    },
+    "password": {
+      "type": "string",
+      "maxLength": 64,
+      "default": "",
+      "description": "Broker password"
+    },
+    "client_id": {
+      "type": "string",
+      "maxLength": 64,
+      "default": "",
+      "description": "MQTT client identifier; empty uses the device name passed to mqtt_manager_start()"
+    },
+    "topic_prefix": {
+      "type": "string",
+      "maxLength": 96,
+      "description": "Root topic for everything published and subscribed. '$DEVICE$' is replaced with the device name, so one configuration can serve a fleet."
+    },
+    "keepalive_s": {
+      "type": "integer",
+      "minimum": 5,
+      "maximum": 3600,
+      "js2cType": "uint16_t",
+      "default": 120,
+      "description": "Keepalive interval; the broker declares the client dead after roughly 1.5x this"
+    },
+    "lwt_suffix": {
+      "type": "string",
+      "maxLength": 32,
+      "default": "online",
+      "description": "Topic under the prefix carrying the online/offline state. Empty disables the last will."
+    },
+    "lwt_online": {
+      "type": "string",
+      "maxLength": 32,
+      "default": "1",
+      "description": "Retained payload published on connect"
+    },
+    "lwt_offline": {
+      "type": "string",
+      "maxLength": 32,
+      "default": "0",
+      "description": "Payload the broker publishes when the client stops responding"
+    },
+    "lwt_qos": {
+      "type": "integer",
+      "minimum": 0,
+      "maximum": 2,
+      "js2cType": "uint8_t",
+      "default": 1,
+      "description": "QoS for the birth and will messages"
+    }
+  }
+}

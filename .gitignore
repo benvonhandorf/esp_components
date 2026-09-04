@@ -12,3 +12,4 @@ js2c/test/test_js2c
 cli/test/test_cli
 config_store/test/test_config_store
 js2c/test/test_sections
+mqtt_manager/test/test_mqtt_topic

@@ -41,3 +41,7 @@ every component, and the doctrine in [AGENTS.md](../../AGENTS.md) requires it.
   they subscribe to `net_events` rather than being called by whatever provides
   connectivity. Nothing in `main` wires WiFi to either of them, and `wifi_manager`'s
   `PRIV_REQUIRES` names neither.
+- **mqtt_manager** — started with no broker reachable, which is the interesting case:
+  handlers and wildcard filters register before any connection, `$DEVICE$` is substituted
+  into the topic prefix, publishing while disconnected reports it rather than queueing,
+  and the log sink counts dropped lines instead of losing them silently.

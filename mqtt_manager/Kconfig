@@ -1,0 +1,17 @@
+menu "mqtt_manager"
+
+    config MQTT_MANAGER_MAX_SUBSCRIPTIONS
+        int "Maximum registered topic handlers"
+        default 8
+        range 1 32
+        help
+            Each entry holds a full topic filter, so this costs memory whether or
+            not it is used. Subscriptions are re-applied on every reconnect, since
+            a broker keeps no state for a client that dropped.
+
+    config MQTT_LOG_SINK_MAX_SUFFIX_LEN
+        int "Maximum log topic suffix length (bytes)"
+        default 32
+        range 8 128
+
+endmenu

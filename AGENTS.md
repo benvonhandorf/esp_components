@@ -121,6 +121,15 @@ minor bump. Adding to `required`, renaming or removing a property, or changing
 `maxLength`, `js2cType` or `type`, is a major bump — as is changing `$id`, which
 renames the public type.
 
+## ESP-IDF v6 notes
+
+- **esp-mqtt is no longer bundled.** `components/mqtt` in v6.0 contains only `test_apps`;
+  the library moved to the registry as `espressif/mqtt`. A `PRIV_REQUIRES mqtt` fails with
+  "unknown name"; depend on `espressif/mqtt` in `idf_component.yml` and require
+  `espressif__mqtt`.
+- **`CONFIG_LWIP_SNTP_MAX_SERVERS` defaults to 1.** `esp_sntp_config_t::servers` is sized
+  by it, so writing a second server is not ignored — it runs off the end of the struct.
+
 ## Environment notes
 
 - Sourcing `export.sh` puts the xtensa, riscv32 and esp32ulp toolchains ahead of
