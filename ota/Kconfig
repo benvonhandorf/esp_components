@@ -1,0 +1,12 @@
+menu "ota"
+
+    config OTA_HTTP_CHUNK_SIZE
+        int "Upload chunk size (bytes)"
+        default 1024
+        range 512 8192
+        help
+            The image is received and written in chunks of this size, so a device
+            with no PSRAM never holds more than this much of it. The buffer is
+            static, not on the handler's stack.
+
+endmenu

@@ -15,7 +15,7 @@ list(APPEND EXTRA_COMPONENT_DIRS "${CMAKE_CURRENT_LIST_DIR}/../..")
 # without touching main's requirements.
 if(IDF_TARGET STREQUAL "linux")
     set(COMPONENTS main js2c demo_net demo_mqtt diag cli cli_web config_store
-                   net_events wifi_manager ntp_manager mdns_manager mqtt_manager)
+                   net_events wifi_manager ntp_manager mdns_manager mqtt_manager http_server ota)
 endif()
 include($ENV{IDF_PATH}/tools/cmake/project.cmake)
 project(js2c_consumer)

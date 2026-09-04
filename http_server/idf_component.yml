@@ -1,0 +1,15 @@
+version: "0.1.0"
+description: >-
+  HTTP management interface: one server, routes registered as data rather than
+  through a weak symbol, and optional Basic authentication decided per route.
+  Starts listening when the network comes up, including over the device's own
+  access point. Refuses to start with authentication enabled and no password.
+url: https://github.com/benvonhandorf/esp_components/tree/main/http_server
+repository: https://github.com/benvonhandorf/esp_components.git
+issues: https://github.com/benvonhandorf/esp_components/issues
+tags:
+  - http
+  - web
+  - networking
+dependencies:
+  idf: ">=5.0"

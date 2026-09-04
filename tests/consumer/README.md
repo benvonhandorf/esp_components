@@ -45,3 +45,8 @@ every component, and the doctrine in [AGENTS.md](../../AGENTS.md) requires it.
   handlers and wildcard filters register before any connection, `$DEVICE$` is substituted
   into the topic prefix, publishing while disconnected reports it rather than queueing,
   and the log sink counts dropped lines instead of losing them silently.
+- **http_server / ota** — starting with authentication enabled and no password is
+  refused, routes register as data with per-route auth, and `ota_session_begin()` on a
+  single-app partition table reports `OTA_STAGE_NO_PARTITION` by name rather than
+  failing generically. That partition layout is exactly what the template's A/B table
+  exists to avoid, so the test asserts the diagnosis rather than the success path.

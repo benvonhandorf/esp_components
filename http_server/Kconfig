@@ -1,0 +1,12 @@
+menu "http_server"
+
+    config HTTP_SERVER_MAX_ROUTES
+        int "Maximum registered routes"
+        default 12
+        range 2 32
+        help
+            Routes are copied into a statically sized table so they can be
+            registered before the server starts and re-registered if it restarts.
+            The httpd handler limit is sized from this.
+
+endmenu

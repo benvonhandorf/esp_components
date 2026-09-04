@@ -1,0 +1,49 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "http_server_config",
+  "title": "HTTP management interface",
+  "type": "object",
+  "additionalProperties": false,
+  "properties": {
+    "port": {
+      "type": "integer",
+      "minimum": 1,
+      "maximum": 65535,
+      "js2cType": "uint16_t",
+      "default": 80,
+      "description": "TCP port for the management interface"
+    },
+    "require_auth": {
+      "type": "boolean",
+      "default": true,
+      "description": "Require HTTP Basic credentials on routes marked as protected. Defaults to on: a management interface that can reflash the device should not be open by omission."
+    },
+    "username": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 32,
+      "default": "admin",
+      "description": "Basic-auth username"
+    },
+    "password": {
+      "type": "string",
+      "maxLength": 64,
+      "default": "",
+      "description": "Basic-auth password. There is deliberately no default: starting with authentication enabled and no password is refused, so a device cannot ship with well-known credentials."
+    },
+    "realm": {
+      "type": "string",
+      "maxLength": 48,
+      "default": "Device",
+      "description": "Realm shown in the browser's credentials prompt"
+    },
+    "max_open_sockets": {
+      "type": "integer",
+      "minimum": 2,
+      "maximum": 16,
+      "js2cType": "uint8_t",
+      "default": 7,
+      "description": "Concurrent connections. A browser holding a WebSocket console open uses one for as long as the page is open."
+    }
+  }
+}

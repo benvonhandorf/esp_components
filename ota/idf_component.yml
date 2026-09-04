@@ -1,0 +1,16 @@
+version: "0.1.0"
+description: >-
+  Over-the-air firmware update to the inactive slot, with rollback. Validates the
+  image header and app descriptor after roughly a kilobyte rather than after the
+  whole upload, so the wrong binary is rejected early, and reports which step
+  failed so the caller can say what to do about it. Includes an optional
+  authenticated HTTP POST route.
+url: https://github.com/benvonhandorf/esp_components/tree/main/ota
+repository: https://github.com/benvonhandorf/esp_components.git
+issues: https://github.com/benvonhandorf/esp_components/issues
+tags:
+  - ota
+  - firmware
+  - update
+dependencies:
+  idf: ">=5.0"

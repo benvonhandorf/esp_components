@@ -31,6 +31,8 @@ not drag in changes to the others.
 | [mdns_manager](mdns_manager/) | Advertises the device and its services by name; registration is data, not a weak symbol |
 | [ntp_manager](ntp_manager/) | Sets the clock from NTP once the link is up, and posts a time-synced event |
 | [mqtt_manager](mqtt_manager/) | MQTT with a topic-handler registry, last-will/birth messages and an optional log sink; knows nothing about what the device does |
+| [http_server](http_server/) | One HTTP server, routes registered as data, Basic auth decided per route; refuses to start authenticated with no password |
+| [ota](ota/) | Firmware update to the inactive slot with rollback; rejects the wrong binary early and says which step failed |
 
 ## Testing
 
@@ -48,6 +50,7 @@ make -C js2c/test
 make -C cli/test
 make -C config_store/test
 make -C mqtt_manager/test
+make -C http_server/test
 cd tests/consumer && idf.py set-target esp32s3 && idf.py build
 ```
 

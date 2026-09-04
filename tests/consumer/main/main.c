@@ -6,7 +6,10 @@
 #include "app_config.h"           /* generated: the top-level walker */
 #include "app_config_sections.h"  /* generated: APP_CONFIG_SECTIONS(X) */
 #include "config_store.h"
+#include "http_server.h"
 #include "mdns_manager.h"
+#include "ota.h"
+#include "ota_http.h"
 #include "mqtt_log_sink.h"
 #include "mqtt_manager.h"
 #include "net_events.h"
@@ -220,6 +223,60 @@ static void check_mqtt(void)
     expect(mqtt_manager_stop() == ESP_OK, "mqtt_manager stops");
 }
 
+/* --- http + ota: routes are data, and one server serves everything --------- */
+
+static esp_err_t handle_status(httpd_req_t *req)
+{
+    /* Whatever the route was registered with, without the component having to
+     * hand out a global. */
+    const char *what = (const char *)http_server_route_ctx(req);
+    return httpd_resp_sendstr(req, what ? what : "{}");
+}
+
+static void check_http_and_ota(void)
+{
+    http_server_config_t cfg = {0};
+    cfg.port = 8080;
+    cfg.require_auth = true;
+    cfg.max_open_sockets = 7;
+    snprintf(cfg.username, sizeof(cfg.username), "admin");
+    snprintf(cfg.realm, sizeof(cfg.realm), "Consumer Test");
+
+    /* A management interface that can reflash the device must not come up with
+     * credentials that ship in the source, so this is refused rather than
+     * defaulted -- and refused rather than silently disabling authentication. */
+    expect(http_server_start(&cfg) == HTTP_SERVER_ERR_NO_PASSWORD,
+           "authentication without a password is refused");
+
+    snprintf(cfg.password, sizeof(cfg.password), "not-the-default");
+    expect(http_server_start(&cfg) == ESP_OK, "http_server starts once a password is set");
+    expect(!http_server_is_running(), "but does not listen before there is a link");
+
+    static const char STATUS[] = "{\"ok\":true}";
+    static const http_route_t routes[] = {
+        {"/api/status", HTTP_GET, handle_status, (void *)STATUS, false},
+    };
+    expect(http_server_add_routes(routes, 1) == ESP_OK,
+           "routes register as data, not through a weak symbol");
+
+    /* The OTA route is authenticated by the server, not by its own check. */
+    expect(ota_http_register("/api/ota") == ESP_OK, "the OTA route registers");
+
+    /* This build has a single app partition, which is exactly the condition the
+     * template's A/B layout exists to avoid -- and it is reported as its own
+     * stage rather than a generic failure. */
+    ota_report_t report;
+    ota_session_t *session = NULL;
+    esp_err_t err = ota_session_begin(NULL, &session, &report);
+    expect(err == ESP_ERR_NOT_FOUND, "OTA without a second app slot is refused");
+    expect(report.failed_stage == OTA_STAGE_NO_PARTITION, "and names the stage");
+    printf("ota stage: %s\n", ota_stage_name(report.failed_stage));
+
+    expect(!ota_pending_verify(), "a normally-booted image awaits no confirmation");
+
+    expect(http_server_stop() == ESP_OK, "http_server stops");
+}
+
 /* --- cli: a component shipping its own command group ----------------------- */
 
 static int cmd_demo_show(int argc, char **argv)
@@ -247,6 +304,7 @@ void app_main(void)
     check_config();
     check_networking();
     check_mqtt();
+    check_http_and_ota();
 
     ESP_ERROR_CHECK(diag_init(NULL));
     ESP_ERROR_CHECK(cli_register_group(&demo_group));
