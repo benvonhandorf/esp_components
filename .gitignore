@@ -14,3 +14,7 @@ config_store/test/test_config_store
 js2c/test/test_sections
 mqtt_manager/test/test_mqtt_topic
 http_server/test/test_http_auth
+ina219/test/test_ina219_calc
+ina226/test/test_ina226_calc
+lm75bdp/test/test_lm75bdp_calc
+rx8130ce/test/test_rx8130ce_calc

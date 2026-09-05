@@ -1,0 +1,15 @@
+version: "0.1.0"
+description: >-
+  Dispatch for a shared, wired-AND interrupt line, where several I2C parts sit on
+  one open-drain INT pin. Handlers run on a task rather than in the ISR, because
+  clearing an interrupt on an I2C part means a bus transaction, and the line is
+  re-checked afterwards so a part nobody serviced does not stall silently.
+url: https://github.com/benvonhandorf/esp_components/tree/main/int_dispatch
+repository: https://github.com/benvonhandorf/esp_components.git
+issues: https://github.com/benvonhandorf/esp_components/issues
+tags:
+  - gpio
+  - interrupt
+  - i2c
+dependencies:
+  idf: ">=5.0"

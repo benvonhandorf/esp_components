@@ -1,0 +1,17 @@
+version: "0.1.0"
+description: >-
+  NXP LM75B temperature sensor and thermal watchdog: 0.125 C readings and programmable over-temperature and hysteresis thresholds, with the values actually programmed reported back.
+  Returns facts rather than formatted text, so the caller decides how to report
+  them.
+url: https://github.com/benvonhandorf/esp_components/tree/main/lm75bdp
+repository: https://github.com/benvonhandorf/esp_components.git
+issues: https://github.com/benvonhandorf/esp_components/issues
+tags:
+  - temperature
+  - sensor
+  - lm75
+  - i2c
+  - thermal
+dependencies:
+  # i2c_master_dev_handle_t and the i2c_master API it belongs to.
+  idf: ">=5.3"

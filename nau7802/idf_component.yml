@@ -1,0 +1,17 @@
+version: "0.2.0"
+description: >-
+  Nuvoton NAU7802 24-bit bridge ADC driver: register-level control, DRDY
+  interrupt support, and the tare/scale arithmetic a load cell needs. Returns
+  facts rather than formatted text, so the caller decides how to report them.
+url: https://github.com/benvonhandorf/esp_components/tree/main/nau7802
+repository: https://github.com/benvonhandorf/esp_components.git
+issues: https://github.com/benvonhandorf/esp_components/issues
+tags:
+  - adc
+  - load-cell
+  - nau7802
+  - i2c
+  - sensor
+dependencies:
+  # i2c_master_dev_handle_t and the i2c_master API it belongs to.
+  idf: ">=5.3"

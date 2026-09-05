@@ -25,7 +25,7 @@ extern "C" {
  * over the built-in one.
  */
 
-#define CONFIG_STORE_ERR_BASE 0x33000
+#define CONFIG_STORE_ERR_BASE 0x3D000
 /* The file is larger than the caller's buffer or than max_size. Distinct from
  * ESP_ERR_NO_MEM so a caller can tell "your buffer is too small" from "the
  * allocation failed". */

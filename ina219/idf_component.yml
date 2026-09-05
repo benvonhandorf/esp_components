@@ -1,0 +1,18 @@
+version: "0.1.0"
+description: >-
+  TI INA219 bidirectional current, voltage and power monitor: calibration
+  computed from the sense resistor actually fitted, with readings scaled by the
+  resolution the register really yields. Returns facts rather than formatted
+  text, so the caller decides how to report them.
+url: https://github.com/benvonhandorf/esp_components/tree/main/ina219
+repository: https://github.com/benvonhandorf/esp_components.git
+issues: https://github.com/benvonhandorf/esp_components/issues
+tags:
+  - current-sense
+  - power-monitor
+  - ina219
+  - i2c
+  - sensor
+dependencies:
+  # i2c_master_dev_handle_t and the i2c_master API it belongs to.
+  idf: ">=5.3"

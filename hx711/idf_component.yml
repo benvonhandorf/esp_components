@@ -1,0 +1,21 @@
+version: "0.1.0"
+description: >-
+  Avia Semiconductor HX711 24-bit load cell ADC: a bit-banged two-pin driver
+  with cycle-accurate clock timing and a T3 violation check, plus the
+  tare/scale arithmetic a load cell needs. Returns facts rather than formatted
+  text, so the caller decides how to report them.
+url: https://github.com/benvonhandorf/esp_components/tree/main/hx711
+repository: https://github.com/benvonhandorf/esp_components.git
+issues: https://github.com/benvonhandorf/esp_components/issues
+tags:
+  - adc
+  - load-cell
+  - hx711
+  - bit-bang
+  - sensor
+dependencies:
+  # No IDF API used here is newer than 4.x, but src/hx711.c includes
+  # esp_private/esp_clk.h, which carries no stability promise. The floor states
+  # the range this was verified against rather than a feature it needs; see the
+  # Portability section of README.md.
+  idf: ">=5.3"

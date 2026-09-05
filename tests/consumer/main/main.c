@@ -7,6 +7,13 @@
 #include "app_config_sections.h"  /* generated: APP_CONFIG_SECTIONS(X) */
 #include "config_store.h"
 #include "http_server.h"
+#include "aw9523b.h"
+#include "ina219.h"
+#include "ina226.h"
+#include "int_dispatch.h"
+#include "lm75bdp.h"
+#include "pi4ioe5v6408.h"
+#include "rx8130ce.h"
 #include "mdns_manager.h"
 #include "ota.h"
 #include "ota_http.h"
@@ -277,6 +284,82 @@ static void check_http_and_ota(void)
     expect(http_server_stop() == ESP_OK, "http_server stops");
 }
 
+/* --- drivers: a handle exists before the bus does --------------------------- */
+
+static void check_drivers(void)
+{
+    /* The property that makes a driver reusable: it can be created before there
+     * is anything to talk to, so a caller may state how a board is wired before
+     * it is powered. */
+    ina226_config_t cfg = {
+        .dev = NULL,
+        .shunt_ohms = 0.01f,
+        .max_current_a = 32.768f,
+    };
+    ina226_handle_t ina = NULL;
+    ina226_report_t report;
+
+    expect(ina226_create(&cfg, &ina, &report) == ESP_OK, "ina226 handle created with no bus");
+    expect(report.calibration == 512, "calibration derived from the shunt, not hardcoded");
+    expect(report.current_lsb_a > 0.0f, "and the resolution is reported");
+
+    /* Every call needing the bus refuses, by name, rather than faulting. */
+    ina226_reading_t reading;
+    expect(ina226_read(ina, &reading) == ESP_ERR_INVALID_STATE,
+           "reading without a device reports INVALID_STATE");
+    expect(ina226_clear_alert(ina) == ESP_ERR_INVALID_STATE,
+           "clearing the alert without a device reports INVALID_STATE");
+
+    /* A shunt and range that cannot be represented is refused up front. */
+    ina226_config_t bad = {.shunt_ohms = 0.0001f, .max_current_a = 0.1f};
+    ina226_handle_t unused = NULL;
+    expect(ina226_create(&bad, &unused, &report) == ESP_ERR_INA226_BAD_RANGE,
+           "an unrepresentable range is refused");
+    expect(report.failed_stage == INA226_STAGE_RANGE, "and names the stage");
+
+    ina226_delete(ina);
+
+    /* Every converted driver has the same shape, so the same property holds for
+     * all of them: a handle exists before the bus does, and calls needing the bus
+     * refuse by name. */
+    ina219_handle_t i219 = NULL;
+    ina219_config_t c219 = {.shunt_ohms = 0.1f, .max_current_a = 3.2f};
+    ina219_report_t r219;
+    expect(ina219_create(&c219, &i219, &r219) == ESP_OK, "ina219 handle created with no bus");
+    expect(r219.calibration == 4194, "ina219 uses 0.04096, not the INA226's 0.00512");
+    ina219_delete(i219);
+
+    lm75bdp_handle_t lm = NULL;
+    lm75bdp_config_t clm = {0};
+    expect(lm75bdp_create(&clm, &lm, NULL) == ESP_OK, "lm75bdp handle created with no bus");
+    lm75bdp_reading_t temp;
+    expect(lm75bdp_read(lm, &temp) == ESP_ERR_INVALID_STATE, "lm75bdp refuses without a device");
+    lm75bdp_delete(lm);
+
+    rx8130ce_handle_t rtc = NULL;
+    rx8130ce_config_t crtc = {0};
+    expect(rx8130ce_create(&crtc, &rtc, NULL) == ESP_OK, "rx8130ce handle created with no bus");
+    expect(!rx8130ce_power_was_lost(rtc), "rx8130ce reports no power loss before it is read");
+    rx8130ce_delete(rtc);
+
+    aw9523b_handle_t aw = NULL;
+    aw9523b_config_t caw = {.port0_inputs = 0xF0, .port0_push_pull = true};
+    expect(aw9523b_create(&caw, &aw, NULL) == ESP_OK, "aw9523b handle created with no bus");
+    expect(aw9523b_set_pin(aw, AW9523B_PORT0, 0, true) == ESP_ERR_INVALID_STATE,
+           "aw9523b refuses without a device");
+    aw9523b_delete(aw);
+
+    pi4ioe5v6408_handle_t io = NULL;
+    pi4ioe5v6408_config_t cio = {.outputs = 0xF0, .pull_enable = 0x07, .pull_up = 0x07};
+    expect(pi4ioe5v6408_create(&cio, &io, NULL) == ESP_OK, "pi4ioe5v6408 handle created with no bus");
+    pi4ioe5v6408_delete(io);
+
+    /* int_dispatch takes the pin as a parameter; the original compiled in GPIO 14. */
+    expect(int_dispatch_register(NULL, NULL) == ESP_ERR_INVALID_ARG,
+           "int_dispatch refuses a NULL handler");
+    expect(int_dispatch_unserviced_count() == 0, "no unserviced interrupts yet");
+}
+
 /* --- cli: a component shipping its own command group ----------------------- */
 
 static int cmd_demo_show(int argc, char **argv)
@@ -305,6 +388,7 @@ void app_main(void)
     check_networking();
     check_mqtt();
     check_http_and_ota();
+    check_drivers();
 
     ESP_ERROR_CHECK(diag_init(NULL));
     ESP_ERROR_CHECK(cli_register_group(&demo_group));

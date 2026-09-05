@@ -38,7 +38,20 @@ These rules were learned the hard way, extracting drivers out of an application 
 - **`REQUIRES` lists only what appears in the public header.** Everything else is
   `PRIV_REQUIRES`.
 - **One `esp_err_t` base per component**, distinct from every other, so
-  `esp_err_to_name()` cannot attribute a failure to the wrong part.
+  `esp_err_to_name()` cannot attribute a failure to the wrong part. Take the next free
+  value from the table below and add your row in the same commit -- two components sharing
+  a base is invisible until an error is reported against the wrong one.
+
+  | Base | Component | | Base | Component |
+  |---|---|---|---|---|
+  | `0x30000` | nau7802      | | `0x38000` | ina219 |
+  | `0x31000` | ina237       | | `0x39000` | lm75bdp |
+  | `0x32000` | sht4x        | | `0x3A000` | rx8130ce |
+  | `0x33000` | hx711        | | `0x3B000` | aw9523b |
+  | `0x34000` | mqtt_manager | | `0x3C000` | pi4ioe5v6408 |
+  | `0x35000` | http_server  | | `0x3D000` | config_store |
+  | `0x36000` | ota          | | `0x3E000` | *next free* |
+  | `0x37000` | ina226       | | | |
 - **Each component sets its own `-Wall -Wextra -Werror`, PRIVATE on `COMPONENT_LIB`.**
   Project-wide flags would also hit ESP-IDF and managed components, which do not build
   clean.
@@ -51,6 +64,14 @@ These rules were learned the hard way, extracting drivers out of an application 
   in the same tree. Pass a table or call a register function instead.
 - **The hard-won comments travel with the code they annotate.** The register quirks
   and timing constraints are the reason a component is worth reusing.
+- **A part's constants belong to the part; a board's belong to the board.** A shunt
+  resistance, a pin direction, an LED's polarity and which GPIO an interrupt lands on are
+  configuration, not `#define`s. A driver whose API is `set_backlight()` and
+  `read_buttons()` is a driver for one product.
+- **Test the arithmetic off-target.** Calibration, sign extension, BCD and unit scaling
+  fail silently: they produce readings that are plausible, stable and wrong. Every such
+  conversion here lives in a `_calc.c` with a host test, which is how a 24.5% current
+  error that had been shipping went from invisible to asserted.
 
 ## Layout of a component
 

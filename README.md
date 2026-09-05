@@ -34,6 +34,23 @@ not drag in changes to the others.
 | [http_server](http_server/) | One HTTP server, routes registered as data, Basic auth decided per route; refuses to start authenticated with no password |
 | [ota](ota/) | Firmware update to the inactive slot with rollback; rejects the wrong binary early and says which step failed |
 
+### Device drivers
+
+| Component | Part |
+|---|---|
+| [ina219](ina219/) / [ina226](ina226/) / [ina237](ina237/) | Current, voltage and power monitors (I2C) |
+| [lm75bdp](lm75bdp/) | Temperature sensor and thermal watchdog (I2C) |
+| [sht4x](sht4x/) | Humidity and temperature sensor (I2C) |
+| [nau7802](nau7802/) | 24-bit bridge ADC for load cells (I2C) |
+| [hx711](hx711/) | 24-bit load cell ADC (bit-banged, no bus) |
+| [aw9523b](aw9523b/) | 16-bit I/O expander (I2C) |
+| [pi4ioe5v6408](pi4ioe5v6408/) | 8-bit I/O expander with pulls and interrupt (I2C) |
+| [rx8130ce](rx8130ce/) | Real-time clock with battery backup (I2C) |
+| [int_dispatch](int_dispatch/) | Dispatch for a shared, wired-AND interrupt line |
+
+Every driver takes a caller-owned device handle, can be created before its bus exists, and
+returns facts rather than formatted text — see [AGENTS.md](AGENTS.md).
+
 ## Testing
 
 Two kinds, and the distinction matters:
@@ -51,6 +68,10 @@ make -C cli/test
 make -C config_store/test
 make -C mqtt_manager/test
 make -C http_server/test
+make -C ina219/test
+make -C ina226/test
+make -C lm75bdp/test
+make -C rx8130ce/test
 cd tests/consumer && idf.py set-target esp32s3 && idf.py build
 ```
 

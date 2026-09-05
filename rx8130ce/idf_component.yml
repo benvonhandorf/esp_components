@@ -1,0 +1,17 @@
+version: "0.1.0"
+description: >-
+  Epson RX8130CE real-time clock with battery backup: BCD calendar registers, and a power-lost flag that distinguishes a clock which does not know the time from one that does.
+  Returns facts rather than formatted text, so the caller decides how to report
+  them.
+url: https://github.com/benvonhandorf/esp_components/tree/main/rx8130ce
+repository: https://github.com/benvonhandorf/esp_components.git
+issues: https://github.com/benvonhandorf/esp_components/issues
+tags:
+  - rtc
+  - clock
+  - time
+  - rx8130ce
+  - i2c
+dependencies:
+  # i2c_master_dev_handle_t and the i2c_master API it belongs to.
+  idf: ">=5.3"
