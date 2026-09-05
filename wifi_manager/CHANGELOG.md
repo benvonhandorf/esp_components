@@ -3,6 +3,30 @@
 All notable changes to this component are documented here.
 The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
+## [0.2.0] - 2026-09-05
+
+### Added
+
+- `wifi_manager_scan()`, for a user interface that wants to show what is nearby
+  rather than join it. A caller cannot do this alone: a scan started outside the
+  component races the manager's own `WIFI_EVENT_SCAN_DONE` handler, which
+  consumes the records to look for a known network or clears them to release
+  driver memory. The handler wins every time, so the caller's blocking scan
+  returns an empty list while the manager logs the access points it just found.
+  Whoever owns the event handler has to own scanning.
+
+  `wifi_ap_record_t` appears in the public header, so `esp_wifi` moves from
+  `PRIV_REQUIRES` to `REQUIRES`.
+
+### Fixed
+
+- `schedule_reconnect()` logged `scan_interval_ms`, a `uint32_t`, with `PRIu64`.
+  The variadic read took two slots and printed whatever followed it -- values
+  like "reconnect scan in 3689918353324026336 ms" on every disconnect. The timer
+  was always armed correctly; only the line saying so was wrong, which is worse
+  than it sounds on a bench, where that line is the evidence that reconnection is
+  working.
+
 ## [0.1.0] - 2026-09-04
 
 ### Added

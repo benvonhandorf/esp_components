@@ -53,11 +53,36 @@ Notable fields:
 - `connection_timeout_ms` — re-armed on association as well as on connect, so a stalled
   DHCP cannot wedge the state machine in CONNECTING.
 
+## Showing what is nearby
+
+```c
+wifi_ap_record_t aps[32];
+uint16_t found = 0;
+if (wifi_manager_scan(aps, 32, &found) == ESP_OK) {
+    for (uint16_t i = 0; i < found; i++) {
+        printf("%-32s %4d dBm  ch %d\n", (const char *)aps[i].ssid,
+               aps[i].rssi, aps[i].primary);
+    }
+}
+```
+
+**Do not call `esp_wifi_scan_start()` yourself.** It is not a matter of taste: this
+component's `WIFI_EVENT_SCAN_DONE` handler either consumes the records to look for a
+known network or clears them to release driver memory, and it runs before a blocking
+`esp_wifi_scan_start()` returns to its caller. Your scan comes back with zero access
+points while this component's log lists the ones it just found — and nothing about that
+looks like a bug from the caller's side. Scanning has to belong to whoever owns the
+handler.
+
+The scan blocks for a second or two, and the manager gives up that scan's own chance to
+join a known network; the reconnect timer is re-armed so the attempt is not lost.
+
 ## Behaviour worth knowing before editing
 
 - **Scan results must be consumed or cleared.** They pin driver memory until fetched;
   leaving them makes every later `esp_wifi_scan_start()` fail with `ESP_ERR_WIFI_STATE`.
-  The `SCAN_DONE` handler clears them when it will not use them.
+  The `SCAN_DONE` handler clears them when it will not use them, and steps aside entirely
+  while `wifi_manager_scan()` is waiting for them.
 - **The reachability ping runs on its own task** because it starts with a DNS lookup that
   blocks. It re-checks the connection state after the lookup and aborts if the link went
   away while it was in flight.

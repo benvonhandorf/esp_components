@@ -13,6 +13,7 @@
 #include <stdint.h>
 #include <sys/time.h>
 #include "esp_err.h"
+#include "esp_wifi_types.h"
 #include "ping/ping_sock.h"
 #include "wifi_manager_config.h"
 
@@ -47,6 +48,32 @@ esp_err_t wifi_manager_add_known_network(const char *ssid, const char *password)
 esp_err_t wifi_manager_remove_known_network(const char *ssid);
 
 esp_err_t wifi_manager_scan_and_connect(void);
+
+/*
+ * Scan and hand the results to the caller, for a user interface that wants to
+ * show what is nearby rather than join it.
+ *
+ * This exists because the caller cannot do it alone. A scan started with
+ * esp_wifi_scan_start() outside this component races the manager's own
+ * WIFI_EVENT_SCAN_DONE handler, which either consumes the records to look for a
+ * known network or clears them to release driver memory -- and it wins, every
+ * time, so the caller's blocking scan returns an empty list while the manager
+ * logs the access points it just found. Scanning has to be done by whoever owns
+ * the event handler.
+ *
+ * Blocks for the duration of the scan, a second or two. `*count` is set to the
+ * number of records written, at most `max`.
+ *
+ * The manager's own use of this scan is given up while it runs: if it was
+ * looking for a known network to join, that attempt is skipped and the reconnect
+ * timer tries again. A scan is cheap and the retry is already there; the
+ * alternative is copying every record on the chance someone asks for them.
+ *
+ * ESP_ERR_INVALID_STATE if the driver is not up, the radio is in AP mode or
+ * powered off, or a scan for a caller is already running.
+ */
+esp_err_t wifi_manager_scan(wifi_ap_record_t *records, uint16_t max,
+                            uint16_t *count);
 wifi_manager_state_t wifi_manager_get_state(void);
 esp_err_t wifi_manager_get_rssi(int8_t *rssi);
 esp_err_t wifi_manager_get_address(char *dest, size_t length);

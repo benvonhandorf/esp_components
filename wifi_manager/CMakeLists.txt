@@ -13,10 +13,10 @@ idf_component_register(
     SRCS         "src/wifi_manager.c" "${GEN_C}"
     INCLUDE_DIRS "include" "${GEN_C_DIR}"
     REQUIRES     esp_common          # esp_err_t
+                 esp_wifi            # wifi_ap_record_t in wifi_manager_scan()
                  js2c                # the generated config type is public API
                  lwip                # ping/ping_sock.h in the public header
-    PRIV_REQUIRES esp_wifi
-                  esp_netif
+    PRIV_REQUIRES esp_netif
                   esp_event
                   esp_timer
                   nvs_flash

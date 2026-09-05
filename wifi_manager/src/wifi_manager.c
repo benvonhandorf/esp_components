@@ -33,6 +33,10 @@ typedef struct {
   esp_timer_handle_t reconnect_timer;
   esp_timer_handle_t connect_timeout_timer;
   char ip_addr[16];
+  /* Set while wifi_manager_scan() is blocked inside esp_wifi_scan_start(). The
+   * SCAN_DONE handler must not touch the records while it is set -- see the
+   * comment there. */
+  bool scan_for_caller;
 } wifi_manager_ctx_t;
 
 static wifi_manager_ctx_t s_ctx; /* zero-initialised at startup */
@@ -284,6 +288,64 @@ esp_err_t wifi_manager_scan_and_connect(void) {
   return ret;
 }
 
+esp_err_t wifi_manager_scan(wifi_ap_record_t* records, uint16_t max,
+                            uint16_t* count) {
+  if (records == NULL || count == NULL || max == 0) {
+    return ESP_ERR_INVALID_ARG;
+  }
+  *count = 0;
+
+  if (!s_ctx.initialized) {
+    return ESP_ERR_INVALID_STATE;
+  }
+  /* One radio cannot sit on two channels, so scanning is a station-mode
+   * operation; and a powered-off radio has no driver to ask. */
+  if (s_ctx.state == WIFI_MANAGER_AP_MODE ||
+      s_ctx.state == WIFI_MANAGER_POWERED_OFF) {
+    return ESP_ERR_INVALID_STATE;
+  }
+  if (s_ctx.scan_for_caller) {
+    return ESP_ERR_INVALID_STATE;
+  }
+
+  wifi_scan_config_t scan_config = {
+      .ssid = NULL,
+      .bssid = NULL,
+      .channel = 0,
+      .show_hidden = false,
+  };
+
+  /* Set before starting, so the event handler cannot see the scan without also
+   * seeing that it belongs to a caller. */
+  s_ctx.scan_for_caller = true;
+
+  esp_err_t ret = esp_wifi_scan_start(&scan_config, true); /* blocking */
+  if (ret == ESP_OK) {
+    *count = max;
+    /* This call also releases the driver's scan result buffer, which is why the
+     * event handler was skipped rather than made to clear it. */
+    ret = esp_wifi_scan_get_ap_records(count, records);
+    if (ret != ESP_OK) {
+      *count = 0;
+      esp_wifi_clear_ap_list();
+    }
+  } else {
+    ESP_LOGE(TAG, "Caller scan failed to start: 0x%x - %s", ret,
+             esp_err_to_name(ret));
+  }
+
+  s_ctx.scan_for_caller = false;
+
+  /* The manager gave up this scan's chance to find a known network. Put the
+   * retry back on the timer rather than leaving reconnection to the next thing
+   * that happens to call in. */
+  if (s_ctx.state == WIFI_MANAGER_STA_DISCONNECTED) {
+    schedule_reconnect("caller scan consumed the results");
+  }
+
+  return ret;
+}
+
 wifi_manager_state_t wifi_manager_get_state(void) { return s_ctx.state; }
 
 esp_err_t wifi_manager_get_address(char *dest, size_t length) {
@@ -344,7 +406,7 @@ uint32_t wifi_manager_consecutive_reachability_failures(void) {
 /* The reconnect timer is one-shot. Every path that leaves us without a
  * connection must route through here, or reconnection stops permanently. */
 static void schedule_reconnect(const char* reason) {
-  ESP_LOGI(TAG, "Scheduling reconnect scan in %" PRIu64 " ms (%s)",
+  ESP_LOGI(TAG, "Scheduling reconnect scan in %" PRIu32 " ms (%s)",
            s_ctx.wifi_cfg.scan_interval_ms, reason);
   esp_timer_stop(s_ctx.reconnect_timer);
   esp_timer_start_once(s_ctx.reconnect_timer,
@@ -539,6 +601,14 @@ static void wifi_event_handler(void* arg, esp_event_base_t event_base,
         ESP_LOGW(TAG, "Station beacon stop");
         break;
       case WIFI_EVENT_SCAN_DONE:
+        if (ctx->scan_for_caller) {
+          /* wifi_manager_scan() started this one and is blocked in
+           * esp_wifi_scan_start() waiting for exactly this event; it fetches the
+           * records itself as soon as it wakes. Consuming or clearing them here
+           * is what made every caller-initiated scan return an empty list while
+           * this handler logged the access points it had just found. */
+          break;
+        }
         if (ctx->state == WIFI_MANAGER_STA_DISCONNECTED) {
           connect_from_scan_results();
         } else {

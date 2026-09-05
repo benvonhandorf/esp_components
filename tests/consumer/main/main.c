@@ -161,6 +161,17 @@ static void check_networking(void)
     expect(mdns_manager_add_service(&http) == ESP_OK, "a service can be advertised");
     expect(!mdns_manager_is_advertising(), "nothing advertised until the link is up");
 
+    /* Scanning belongs to whoever owns the SCAN_DONE handler: a caller that
+     * called esp_wifi_scan_start() itself would race this component and lose.
+     * Uninitialised, it refuses rather than touching a driver that is not up. */
+    wifi_ap_record_t records[4];
+    uint16_t found = 1;
+    expect(wifi_manager_scan(records, 4, &found) == ESP_ERR_INVALID_STATE,
+           "wifi_manager_scan is refused before init");
+    expect(found == 0, "a refused scan reports no records");
+    expect(wifi_manager_scan(NULL, 4, &found) == ESP_ERR_INVALID_ARG,
+           "wifi_manager_scan rejects a NULL record array");
+
     ntp_manager_config_t ntp = {0};
     snprintf(ntp.server, sizeof(ntp.server), "pool.ntp.org");
     snprintf(ntp.timezone, sizeof(ntp.timezone), "UTC0");
