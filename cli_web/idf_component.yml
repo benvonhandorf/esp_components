@@ -15,9 +15,13 @@ tags:
   - http
 dependencies:
   idf: ">=5.0"
-  # Inter-component dependencies are declared here at publish time, once this
-  # repository is pushed and per-component tags exist -- for a git dependency the
-  # component manager treats `version` as a git ref, so it cannot resolve against
-  # tags that have not been created. Until then the build is driven by the CMake
-  # REQUIRES/PRIV_REQUIRES in CMakeLists.txt, which is what actually links.
-  # See "Publishing" in ../AGENTS.md.
+  # the shell this is a transport for
+  cli:
+    git: https://github.com/benvonhandorf/esp_components.git
+    path: cli
+    version: cli-v0.1.0
+  # output mirrored to every connected browser
+  diag:
+    git: https://github.com/benvonhandorf/esp_components.git
+    path: diag
+    version: diag-v0.1.0

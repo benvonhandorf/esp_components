@@ -110,28 +110,39 @@ cd tests/consumer && idf.py set-target esp32c3 && idf.py build
 One tag series per component: `<name>-v<major>.<minor>.<patch>`. Bump the version in
 `idf_component.yml` and add a `CHANGELOG.md` entry in the same commit as the change.
 
-## Publishing — required before the first release
+## Publishing
 
-**Inter-component dependencies are not yet declared in `idf_component.yml`.** Today the
-build is driven only by `REQUIRES`/`PRIV_REQUIRES` in each `CMakeLists.txt`, which is what
-actually links, and every component is found locally through `EXTRA_COMPONENT_DIRS`. That
-is enough in this repository and not enough for anyone outside it: a project depending on
-`cli` with `git:` + `path: cli` receives that directory only, and would not get `diag`.
+Every component is released: one tag per component, and every dependent names its siblings
+in `idf_component.yml` with `git:`, `path:` and a `version:` that is the sibling's tag.
 
-So, at the point this repository is first pushed and tagged:
+Two mechanisms are live and they answer different questions. `REQUIRES`/`PRIV_REQUIRES` in
+`CMakeLists.txt` is what *links*; `dependencies:` in `idf_component.yml` is what a
+stranger's component manager *fetches*. **Adding a sibling to one and not the other is
+invisible here and fatal outside**: `main` sees every component in an in-tree build, so a
+missing manifest entry surfaces only in someone else's project, as
 
-1. Create the per-component tags (`diag-v0.1.0`, `cli-v0.1.0`, …).
-2. Add each sibling dependency to the dependent's `idf_component.yml`, e.g. `cli` gains
-   `diag` with `git:`, `path: diag` and `version: diag-v0.1.0`. For a git dependency the
-   component manager treats `version` as a **git ref**, not a semver range — which is why
-   this cannot be done before the tags exist.
+```
+Failed to resolve component 'diag' required by component 'cli': unknown
+```
+
+So when a component gains a sibling dependency:
+
+1. Add it to `REQUIRES` (if it appears in the public header) or `PRIV_REQUIRES` in
+   `CMakeLists.txt`.
+2. Add it to `dependencies:` in `idf_component.yml`, with `git:`, `path: <name>` and
+   `version: <name>-v<x.y.z>` naming a tag that **already exists**. For a git dependency
+   the component manager treats `version` as a git ref, not a semver range, which is why
+   the dependency has to be tagged before the dependent can name it.
 
    Use `https://github.com/...` or `git@github.com:...`, never `git://`: that is the
    unauthenticated git daemon protocol on port 9418, which GitHub permanently disabled in
    2022, so it fails with a connection timeout that looks like a network fault.
-3. Re-run `tests/consumer` against the published tags rather than
-   `EXTRA_COMPONENT_DIRS`. Only that exercises the path a stranger takes, and it is the
-   one part of the distribution model this repository cannot currently prove.
+3. Bump and tag the dependent, then verify against the **published tags** — an
+   `EXTRA_COMPONENT_DIRS` build cannot see a manifest mistake at all. See "Against the
+   published tags" in [tests/consumer/README.md](tests/consumer/README.md).
+
+Upgrading a sibling propagates: raising the tag `cli` names for `diag` is a change to
+`cli`, so `cli` bumps too, and anything depending on `cli` bumps to reach it.
 
 A component's **config schema is part of its public interface**, because the generated
 struct's layout comes from it, and its `$id` names the generated type. Prefix that `$id`

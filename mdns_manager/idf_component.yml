@@ -14,3 +14,8 @@ tags:
 dependencies:
   idf: ">=5.0"
   espressif/mdns: "^1.8"
+  # re-advertises on reconnect
+  net_events:
+    git: https://github.com/benvonhandorf/esp_components.git
+    path: net_events
+    version: net_events-v0.1.0

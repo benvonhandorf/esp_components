@@ -1,6 +1,6 @@
 if(NOT CMAKE_BUILD_EARLY_EXPANSION)
-    js2c_generate("${CMAKE_CURRENT_SOURCE_DIR}/ntp_config_schema.json"
-                  BASENAME ntp_config OUT_C GEN_C)
+    js2c_generate("${CMAKE_CURRENT_SOURCE_DIR}/ntp_manager_config_schema.json"
+                  BASENAME ntp_manager_config OUT_C GEN_C)
     get_filename_component(GEN_C_DIR "${GEN_C}" DIRECTORY)
 endif()
 

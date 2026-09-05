@@ -1,4 +1,16 @@
 dependencies:
+  cli:
+    dependencies: []
+    source:
+      path: ../../cli
+      type: local
+    version: 0.1.0
+  diag:
+    dependencies: []
+    source:
+      path: ../../diag
+      type: local
+    version: 0.1.0
   espressif/mdns:
     component_hash: e81ca7a7f53ea34e78274df054da692c272e1315572876b237b1748e267c013b
     dependencies:
@@ -19,14 +31,37 @@ dependencies:
       registry_url: https://components.espressif.com/
       type: service
     version: 1.1.0
+  http_server:
+    dependencies: []
+    source:
+      path: ../../http_server
+      type: local
+    version: 0.1.0
   idf:
     source:
       type: idf
     version: 6.0.2
+  js2c:
+    dependencies: []
+    source:
+      path: ../../js2c
+      type: local
+    version: 0.1.0
+  net_events:
+    dependencies: []
+    source:
+      path: ../../net_events
+      type: local
+    version: 0.1.0
 direct_dependencies:
+- cli
+- diag
 - espressif/mdns
 - espressif/mqtt
+- http_server
 - idf
-manifest_hash: f266723d6ee99bac96a3fb7a98accbb6611795b31a8a4c070654c3762eb88e6e
-target: esp32c3
+- js2c
+- net_events
+manifest_hash: 9a69aad81bd628f88bfa69b02d85eac613aeea1a7656eb037334517acf021105
+target: esp32s3
 version: 3.0.0

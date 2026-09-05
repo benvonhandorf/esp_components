@@ -53,7 +53,7 @@ returns facts rather than formatted text — see [AGENTS.md](AGENTS.md).
 
 ## Testing
 
-Two kinds, and the distinction matters:
+Three kinds, and the distinctions matter:
 
 - **`<component>/test/`** — host tests, plain `gcc`, no ESP-IDF and no hardware.
   one `make` per component. They compile the *real* sources, never a copy of them.
@@ -61,6 +61,9 @@ Two kinds, and the distinction matters:
   reaches them only through `EXTRA_COMPONENT_DIRS`. This is the acceptance test for
   reuse: an in-tree build cannot prove a component is self-contained, because `main`
   implicitly sees every component in the build.
+- **`tests/publish_check.sh`** — the same consumer project, but with every component
+  fetched by its published tag. Only this consults the `idf_component.yml` manifests,
+  so only this can catch a component that requires a sibling it does not declare.
 
 ```sh
 make -C js2c/test
@@ -70,9 +73,11 @@ make -C mqtt_manager/test
 make -C http_server/test
 make -C ina219/test
 make -C ina226/test
+make -C ina237/test
 make -C lm75bdp/test
 make -C rx8130ce/test
 cd tests/consumer && idf.py set-target esp32s3 && idf.py build
+tests/publish_check.sh                 # after pushing the commit and its tags
 ```
 
 See [tests/consumer/README.md](tests/consumer/README.md) for the full build matrix.

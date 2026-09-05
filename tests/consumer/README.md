@@ -18,6 +18,22 @@ idf.py -DSDKCONFIG_DEFAULTS=sdkconfig.ci.usb_jtag set-target esp32s3
 idf.py -DSDKCONFIG_DEFAULTS=sdkconfig.ci.usb_jtag build
 ```
 
+## Against the published tags
+
+The commands above resolve every component from the working tree, so they cannot see a
+mistake in an `idf_component.yml` -- the manifests are not consulted at all. A project
+outside this repository consults nothing else. `../publish_check.sh` builds this same
+project with `EXTRA_COMPONENT_DIRS` removed and every component fetched by its tag:
+
+```sh
+../publish_check.sh            # esp32s3
+../publish_check.sh esp32c3
+```
+
+It fetches from GitHub, so it tests what is **pushed**: run it after pushing a commit and
+its tags. A component that requires a sibling it does not declare fails there and nowhere
+else, with `Failed to resolve component 'diag' required by component 'cli'`.
+
 `main` deliberately declares no `REQUIRES` — that is what keeps its implicit dependency on
 every component, and the doctrine in [AGENTS.md](../../AGENTS.md) requires it.
 

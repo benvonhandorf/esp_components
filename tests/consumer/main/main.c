@@ -161,7 +161,7 @@ static void check_networking(void)
     expect(mdns_manager_add_service(&http) == ESP_OK, "a service can be advertised");
     expect(!mdns_manager_is_advertising(), "nothing advertised until the link is up");
 
-    ntp_config_t ntp = {0};
+    ntp_manager_config_t ntp = {0};
     snprintf(ntp.server, sizeof(ntp.server), "pool.ntp.org");
     snprintf(ntp.timezone, sizeof(ntp.timezone), "UTC0");
     ntp.enabled = true;

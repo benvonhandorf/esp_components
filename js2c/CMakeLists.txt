@@ -6,8 +6,8 @@
 #
 # jsmn.h and js2c_builtins.h here are byte-identical copies of the ones inside
 # tool/js2c/codegen/ -- the generator and its runtime are a matched pair with no
-# version check, so they are kept identical by construction and verified by
-# test/check_runtime_identical.sh.
+# version check, so they are kept identical by construction and verified by the
+# check-runtime-identical target in test/Makefile, which every `make -C test` runs.
 
 idf_component_register(
     SRCS         "src/js2c_error_capture.c"

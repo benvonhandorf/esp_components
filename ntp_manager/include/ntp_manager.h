@@ -5,7 +5,7 @@
 #include <sys/time.h>
 
 #include "esp_err.h"
-#include "ntp_config.h"   /* generated from ntp_config_schema.json */
+#include "ntp_manager_config.h"   /* generated from ntp_manager_config_schema.json */
 
 #ifdef __cplusplus
 extern "C" {
@@ -24,7 +24,7 @@ extern "C" {
  * is serving itself has clients but no route to a time server.
  */
 
-esp_err_t ntp_manager_start(const ntp_config_t *cfg);
+esp_err_t ntp_manager_start(const ntp_manager_config_t *cfg);
 esp_err_t ntp_manager_stop(void);
 
 /* Whether the clock has been set since boot. */

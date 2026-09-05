@@ -1,6 +1,6 @@
 {
   "$schema": "http://json-schema.org/draft-07/schema#",
-  "$id": "ntp_config",
+  "$id": "ntp_manager_config",
   "title": "NTP time synchronisation",
   "type": "object",
   "additionalProperties": false,

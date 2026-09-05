@@ -17,3 +17,18 @@ dependencies:
   # esp-mqtt is no longer bundled with ESP-IDF: in v6.0 components/mqtt holds only
   # test_apps and the library itself moved to the registry.
   espressif/mqtt: "^1.0"
+  # the generated config type is public API
+  js2c:
+    git: https://github.com/benvonhandorf/esp_components.git
+    path: js2c
+    version: js2c-v0.1.0
+  # connects itself when the link comes up
+  net_events:
+    git: https://github.com/benvonhandorf/esp_components.git
+    path: net_events
+    version: net_events-v0.1.0
+  # the optional log sink
+  diag:
+    git: https://github.com/benvonhandorf/esp_components.git
+    path: diag
+    version: diag-v0.1.0

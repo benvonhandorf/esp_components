@@ -16,8 +16,8 @@ itself has clients but no route to a time server.
 
 ## Configuration
 
-`ntp_config_schema.json` → `ntp_config_t`. `server`, an optional `server_fallback`,
-`sync_interval_ms`, `enabled`, and a POSIX `timezone` string.
+`ntp_manager_config_schema.json` → `ntp_manager_config_t`. `server`, an optional
+`server_fallback`, `sync_interval_ms`, `enabled`, and a POSIX `timezone` string.
 
 The timezone is applied **before** the first sync, not after: `localtime()` reads `TZ` at
 call time, so a record timestamped between the sync and a later `setenv` would be

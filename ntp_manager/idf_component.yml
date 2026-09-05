@@ -14,3 +14,13 @@ tags:
   - networking
 dependencies:
   idf: ">=5.0"
+  # the generated config type is public API
+  js2c:
+    git: https://github.com/benvonhandorf/esp_components.git
+    path: js2c
+    version: js2c-v0.1.0
+  # syncs once the link is up
+  net_events:
+    git: https://github.com/benvonhandorf/esp_components.git
+    path: net_events
+    version: net_events-v0.1.0

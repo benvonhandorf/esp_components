@@ -11,7 +11,7 @@
 
 static const char *TAG = "ntp_manager";
 
-static ntp_config_t s_cfg;
+static ntp_manager_config_t s_cfg;
 static bool s_started;      /* subscribed to link events */
 static bool s_sntp_running; /* esp_netif_sntp_init() has been called */
 static bool s_synced;
@@ -99,7 +99,7 @@ static void on_net_event(void *arg, esp_event_base_t base, int32_t id, void *dat
     }
 }
 
-esp_err_t ntp_manager_start(const ntp_config_t *cfg)
+esp_err_t ntp_manager_start(const ntp_manager_config_t *cfg)
 {
     if (!cfg) {
         return ESP_ERR_INVALID_ARG;

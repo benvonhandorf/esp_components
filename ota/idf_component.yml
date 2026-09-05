@@ -14,3 +14,8 @@ tags:
   - update
 dependencies:
   idf: ">=5.0"
+  # the optional authenticated upload route
+  http_server:
+    git: https://github.com/benvonhandorf/esp_components.git
+    path: http_server
+    version: http_server-v0.1.0
