@@ -29,7 +29,9 @@ extern "C" {
  * part that is not there -- or is not an INA219 -- will not reproduce.
  */
 #define ESP_ERR_INA219_WRONG_PART (ESP_ERR_INA219_BASE + 1)
-/* The requested shunt and full-scale current cannot be represented. */
+/* The requested shunt and full-scale current cannot be represented: the range
+ * needs more shunt drop than the PGA can see, or so little that the calibration
+ * overflows 16 bits. See max_current_a. */
 #define ESP_ERR_INA219_BAD_RANGE  (ESP_ERR_INA219_BASE + 2)
 
 #define INA219_I2C_ADDR_DEFAULT 0x40   /* A0 and A1 to GND */
@@ -55,6 +57,14 @@ typedef struct {
      * fixes the resolution: the current register is signed 15-bit, so the LSB is
      * this divided by 32768. Asking for more range than needed throws away
      * resolution; asking for less saturates.
+     *
+     * This times shunt_ohms must not exceed 320 mV, the widest range the PGA
+     * offers and the one this driver programs. Beyond that the front end
+     * saturates whatever the calibration says -- 10 A across 0.1 ohm reads as
+     * 3.2 A -- so the request is refused with ESP_ERR_INA219_BAD_RANGE rather
+     * than reporting a range the part cannot reach. Too small a range is refused
+     * for the opposite reason: below about 20 mV of full-scale shunt drop the
+     * calibration no longer fits 16 bits.
      */
     float max_current_a;
 } ina219_config_t;
@@ -81,7 +91,8 @@ typedef struct {
     ina219_stage_t failed_stage;
     float    current_lsb_a;     /* the resolution actually programmed */
     float    full_scale_a;      /* the largest current it can represent */
-    uint16_t calibration;       /* the register value written */
+    uint16_t calibration;       /* the register value written; always even, as
+                                 * the register's low bit is void */
 } ina219_report_t;
 
 /*
@@ -105,11 +116,14 @@ esp_err_t ina219_set_device(ina219_handle_t handle, i2c_master_dev_handle_t dev,
 esp_err_t ina219_read(ina219_handle_t handle, ina219_reading_t *out);
 
 /*
- * Clear the alert flags by reading the mask/enable register.
+ * Does nothing, and always succeeds. Provided so a caller can treat the current
+ * monitors uniformly.
  *
- * Call from whatever services the ALERT pin. This driver does not register an
- * interrupt handler of its own: which pin the part is wired to, and how
- * interrupts are dispatched, are facts about the board.
+ * The INA219 has neither an alert output nor a mask/enable register to clear:
+ * its register map is six registers, 00h to 05h, and its pinout is IN+, IN-,
+ * GND, VS, SCL, SDA, A0 and A1. The INA226 has both, which is where this call
+ * earns its keep. The nearest thing here is the OVF flag in the bus voltage
+ * register, which the part maintains itself.
  */
 esp_err_t ina219_clear_alert(ina219_handle_t handle);
 

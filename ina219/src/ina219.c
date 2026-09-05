@@ -110,6 +110,11 @@ static esp_err_t configure(struct ina219_dev_t *d, ina219_report_t *report)
      * back what was just written. An address that acknowledges but is something
      * else -- or a bus with pull-ups and no part -- will not reproduce it, and
      * silently returning zeros forever is the alternative.
+     *
+     * This compares equal only because ina219_calibration_compute() masks FS0,
+     * the calibration register's void low bit, which the part always reads back
+     * as zero. Writing an odd calibration here would fail identification on a
+     * perfectly good device roughly half the time.
      */
     uint16_t readback = 0;
     err = read_reg(d, REG_CALIBRATION, &readback);
@@ -204,7 +209,7 @@ esp_err_t ina219_read(ina219_handle_t handle, ina219_reading_t *out)
     out->shunt_voltage = ina219_shunt_volts(shunt);
     out->bus_voltage   = ina219_bus_volts(bus);
     /* Scaled by the LSB the calibration register actually yields. Scaling by the
-     * requested LSB instead is what made the original read 24.5% high. */
+     * requested LSB instead is what made the original read about 22% high. */
     out->current       = ina219_current_amps(current, handle->cal.current_lsb_a);
     out->power         = ina219_power_watts(power, handle->cal.power_lsb_w);
     return ESP_OK;
@@ -212,7 +217,7 @@ esp_err_t ina219_read(ina219_handle_t handle, ina219_reading_t *out)
 
 esp_err_t ina219_clear_alert(ina219_handle_t handle)
 {
-    /* The INA219 has no alert latch to clear; provided so callers can treat the
-     * current monitors uniformly. */
+    /* The INA219 has no alert output and nothing to latch; provided so callers
+     * can treat the current monitors uniformly. */
     return handle ? ESP_OK : ESP_ERR_INVALID_ARG;
 }

@@ -24,7 +24,9 @@ extern "C" {
 /* The manufacturer or die ID is not TI's INA226: usually a different part at
  * this address, or an address that answers but is something else entirely. */
 #define ESP_ERR_INA226_WRONG_PART (ESP_ERR_INA226_BASE + 1)
-/* The requested shunt and full-scale current cannot be represented. */
+/* The requested shunt and full-scale current cannot be represented: the range
+ * needs more shunt drop than the +/-81.92 mV input can see, or so little that the
+ * calibration overflows the register's fifteen bits. See max_current_a. */
 #define ESP_ERR_INA226_BAD_RANGE  (ESP_ERR_INA226_BASE + 2)
 
 #define INA226_I2C_ADDR_DEFAULT 0x40   /* A0 and A1 to GND */
@@ -56,10 +58,23 @@ typedef struct {
      * fixes the resolution: the current register is signed 15-bit, so the LSB is
      * this divided by 32768. Asking for more range than needed throws away
      * resolution; asking for less saturates.
+     *
+     * This times shunt_ohms must not exceed 81.92 mV, the shunt input range.
+     * There is no PGA on this part to widen it, so beyond that the input
+     * saturates whatever the calibration says -- 32.768 A across 0.01 ohm reads
+     * as 8.192 A -- and the request is refused with ESP_ERR_INA226_BAD_RANGE
+     * rather than reporting a range the part cannot reach. Too small a range is
+     * refused for the opposite reason: below about 5.12 mV of full-scale shunt
+     * drop the calibration no longer fits the register's fifteen bits.
      */
     float max_current_a;
 
-    /* 0 selects INA226_AVG_16, which is what the reference design used. */
+    /*
+     * Averaging, written straight into the AVG field. A zero-initialised config
+     * therefore gets INA226_AVG_1 -- no averaging at all. The reference design
+     * used INA226_AVG_16, which is a good starting point for a noisy rail, but
+     * it has to be asked for.
+     */
     ina226_averaging_t averaging;
 } ina226_config_t;
 

@@ -3,18 +3,16 @@ sdkconfig
 sdkconfig.old
 managed_components/
 dependencies.lock
+# tests/consumer is an application, not a component: its lockfile is committed so
+# CI and re-runs against published tags resolve the same dependency versions.
+!tests/consumer/dependencies.lock
 __pycache__/
 *.pyc
 
-# Host test artefacts
+# Host test artefacts. Every <component>/test/Makefile links one binary beside
+# its own sources, so match that shape instead of naming each one -- a new
+# component's test binary is then ignored without touching this file.
+*/test/test_*
+!*/test/test_*.c
+!*/test/test_*.h
 js2c/test/generated/
-js2c/test/test_js2c
-cli/test/test_cli
-config_store/test/test_config_store
-js2c/test/test_sections
-mqtt_manager/test/test_mqtt_topic
-http_server/test/test_http_auth
-ina219/test/test_ina219_calc
-ina226/test/test_ina226_calc
-lm75bdp/test/test_lm75bdp_calc
-rx8130ce/test/test_rx8130ce_calc

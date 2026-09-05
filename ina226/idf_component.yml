@@ -1,4 +1,4 @@
-version: "0.1.0"
+version: "0.2.0"
 description: >-
   TI INA226 bidirectional current, voltage and power monitor: calibration
   computed from the sense resistor actually fitted, part identification before

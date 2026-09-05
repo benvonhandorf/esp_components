@@ -23,9 +23,6 @@
 #define CONFIG_VBUS_1100US    0x0100
 #define CONFIG_VSHUNT_1100US  0x0020
 
-#define MANUFACTURER_ID_TI  0x5449
-#define DIE_ID_INA226       0x2260
-
 #define I2C_TIMEOUT_MS 1000
 
 struct ina226_dev_t {
@@ -111,7 +108,12 @@ static esp_err_t configure(struct ina226_dev_t *d, ina226_report_t *report)
         report->manufacturer_id = manufacturer;
         report->die_id = die;
     }
-    if (manufacturer != MANUFACTURER_ID_TI || die != DIE_ID_INA226) {
+    /*
+     * Compare the device half of the die ID only. The low nibble is the die
+     * revision, and the register map lists 2260h and 2261h as the same part, so
+     * requiring all sixteen bits rejects genuine INA226s.
+     */
+    if (!ina226_part_matches(manufacturer, die)) {
         return fail(report, INA226_STAGE_IDENTIFY, ESP_ERR_INA226_WRONG_PART);
     }
 

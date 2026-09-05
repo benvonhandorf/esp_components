@@ -106,3 +106,13 @@ handing back one register, because they mean different things:
 Not yet declared. The repository this component lives in has no LICENSE file, so
 `idf_component.yml` carries no `license:` key either; that is a gap to close
 before the first tag, not a claim that the code is unencumbered.
+
+## Tests
+
+```sh
+make -C test
+```
+
+No ESP-IDF and no hardware: `test/stub/` supplies just enough of `esp_err.h` and
+`driver/i2c_master.h` to build the driver on the host, and `test/fake_i2c.c` answers its
+transfers from a register map.
