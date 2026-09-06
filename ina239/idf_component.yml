@@ -1,0 +1,18 @@
+version: "0.1.0"
+description: >-
+  TI INA239 current, voltage and power monitor over SPI: identity, ADC range and
+  averaging, shunt calibration, the full measurement set, and the health bits
+  that say when a reading cannot be trusted. Returns facts rather than formatted
+  text, so the caller decides how to report them.
+url: https://github.com/benvonhandorf/esp_components/tree/main/ina239
+repository: https://github.com/benvonhandorf/esp_components.git
+issues: https://github.com/benvonhandorf/esp_components/issues
+tags:
+  - current-sense
+  - power-monitor
+  - ina239
+  - spi
+  - sensor
+dependencies:
+  # spi_device_handle_t and the spi_master API it belongs to.
+  idf: ">=5.0"
