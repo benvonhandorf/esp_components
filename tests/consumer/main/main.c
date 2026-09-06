@@ -13,6 +13,7 @@
 #include "aw9523b.h"
 #include "ina219.h"
 #include "ina226.h"
+#include "ina239.h"
 #include "int_dispatch.h"
 #include "lm75bdp.h"
 #include "pi4ioe5v6408.h"
@@ -349,6 +350,20 @@ static void check_drivers(void)
     expect(ina219_create(&c219, &i219, &r219) == ESP_OK, "ina219 handle created with no bus");
     expect(r219.calibration == 4194, "ina219 uses 0.04096, not the INA226's 0.00512");
     ina219_delete(i219);
+
+    /* The same again over a different transport: ina239 is SPI, and its handle
+     * has to be creatable before a bus exists just as the I2C ones are. */
+    ina239_handle_t i239 = NULL;
+    const ina239_config_t c239 = {.dev = NULL, .shunt_ohms = 0.01,
+                                  .range = INA239_RANGE_41MV,
+                                  .averaging = INA239_AVG_16};
+    expect(ina239_create(&c239, &i239) == ESP_OK, "ina239 handle created with no bus");
+    ina239_reading_t r239;
+    expect(ina239_read(i239, &r239) == ESP_ERR_INVALID_STATE,
+           "ina239 refuses without a device");
+    expect(ina239_device_config(7, 0).mode == 1,
+           "ina239 publishes its own SPI mode rather than leaving it to the caller");
+    ina239_delete(i239);
 
     lm75bdp_handle_t lm = NULL;
     lm75bdp_config_t clm = {0};

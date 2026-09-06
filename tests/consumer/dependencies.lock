@@ -62,6 +62,6 @@ direct_dependencies:
 - idf
 - js2c
 - net_events
-manifest_hash: 02bba5bac6958e3ec899e98d9dab616c408be54f06c06e86c0cc67285043b4cc
+manifest_hash: 4e86427d1b24180325f51f9d504eddfef02f61d3669119c85c9abdb4f0900dec
 target: esp32s3
 version: 3.0.0

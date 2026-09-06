@@ -39,6 +39,7 @@ not drag in changes to the others.
 | Component | Part |
 |---|---|
 | [ina219](ina219/) / [ina226](ina226/) / [ina237](ina237/) | Current, voltage and power monitors (I2C) |
+| [ina239](ina239/) | 85 V current, voltage and power monitor (SPI) |
 | [lm75bdp](lm75bdp/) | Temperature sensor and thermal watchdog (I2C) |
 | [sht4x](sht4x/) | Humidity and temperature sensor (I2C) |
 | [nau7802](nau7802/) | 24-bit bridge ADC for load cells (I2C) |

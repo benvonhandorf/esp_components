@@ -50,8 +50,8 @@ These rules were learned the hard way, extracting drivers out of an application 
   | `0x33000` | hx711        | | `0x3B000` | aw9523b |
   | `0x34000` | mqtt_manager | | `0x3C000` | pi4ioe5v6408 |
   | `0x35000` | http_server  | | `0x3D000` | config_store |
-  | `0x36000` | ota          | | `0x3E000` | *next free* |
-  | `0x37000` | ina226       | | | |
+  | `0x36000` | ota          | | `0x3E000` | ina239 |
+  | `0x37000` | ina226       | | `0x3F000` | *next free* |
 - **Each component sets its own `-Wall -Wextra -Werror`, PRIVATE on `COMPONENT_LIB`.**
   Project-wide flags would also hit ESP-IDF and managed components, which do not build
   clean.
