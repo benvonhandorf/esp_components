@@ -3,6 +3,29 @@
 All notable changes to this component are documented here.
 The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
+## [0.2.1] - 2026-09-06
+
+### Fixed
+
+- An empty `wifi` section parsed to a zeroed struct instead of the schema
+  defaults, and a zeroed `scan_interval_ms` scans without pause. `hostname` was
+  required with no default, and the generated parser reports a missing required
+  field and returns *before* it applies any of the other defaults -- so
+  `{"wifi":{}}`, the document an application falls back to when there is no
+  configuration file, failed to parse and left every field zero. The caller then
+  runs on that: `schedule_reconnect()` arms a one-shot timer for 0 ms, the timer
+  fires as soon as the scan that armed it finishes, and the radio scans back to
+  back for as long as the device is up. `hostname` now defaults to `esp-device`
+  and is no longer required, so an empty section yields a working configuration,
+  which is what the required/default distinction is actually for.
+
+- `scan_interval_ms` and `connection_timeout_ms` are clamped to their schema
+  minimums in `wifi_manager_init()`, with one warning apiece. The struct comes
+  from the caller, not from the parser, so the schema's `minimum` is a promise
+  about parsed configurations and not about what arrives at the door.
+  `schedule_reconnect()` repeats the floor silently: it is the one call that can
+  turn a bad value into an unbounded scan loop.
+
 ## [0.2.0] - 2026-09-05
 
 ### Added

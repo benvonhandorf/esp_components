@@ -4,7 +4,6 @@
   "title": "WiFi station and access point",
   "type": "object",
   "required": [
-    "hostname",
     "known_networks"
   ],
   "additionalProperties": false,
@@ -13,7 +12,8 @@
       "type": "string",
       "pattern": "^[a-z0-9][a-z0-9\\-]{0,61}[a-z0-9]$",
       "maxLength": 40,
-      "description": "Hostname for local discovery; also used as a client identifier"
+      "default": "esp-device",
+      "description": "Hostname for local discovery; also used as a client identifier. Defaulted rather than required: a field with no default aborts the parse before any other default is applied, so requiring it would make an empty section yield a zeroed struct rather than a working one."
     },
     "instancename": {
       "type": "string",

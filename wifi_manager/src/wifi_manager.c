@@ -19,6 +19,19 @@
 
 static const char* TAG = "WIFI_MGR";
 
+/*
+ * Floors for the two intervals that arm a timer. The schema puts the same
+ * minimums on both, so a parsed configuration never trips these -- but the
+ * struct arrives from the caller, and a caller whose config load failed hands
+ * over one the parser never filled. Zero there is not a slow retry, it is no
+ * retry interval at all: the timer fires the moment it is armed, so the scan
+ * completes, rearms, and the radio scans continuously for as long as the device
+ * is up. Clamping once on the way in is what lets every later use of these two
+ * fields be unguarded.
+ */
+#define MIN_SCAN_INTERVAL_MS       1000
+#define MIN_CONNECTION_TIMEOUT_MS  1000
+
 /* ------------------------------------------------------------------ */
 /* Module state                                                         */
 /* ------------------------------------------------------------------ */
@@ -69,6 +82,21 @@ esp_err_t wifi_manager_init(const wifi_manager_config_t* wifi_cfg) {
 
   s_ctx.wifi_cfg = *wifi_cfg;
   s_ctx.ip_addr[0] = '\0';
+
+  if (s_ctx.wifi_cfg.scan_interval_ms < MIN_SCAN_INTERVAL_MS) {
+    ESP_LOGW(TAG,
+             "scan_interval_ms is %" PRIu32 ", below the %d ms minimum; using "
+             "the minimum. A zero here means the configuration was never parsed.",
+             s_ctx.wifi_cfg.scan_interval_ms, MIN_SCAN_INTERVAL_MS);
+    s_ctx.wifi_cfg.scan_interval_ms = MIN_SCAN_INTERVAL_MS;
+  }
+  if (s_ctx.wifi_cfg.connection_timeout_ms < MIN_CONNECTION_TIMEOUT_MS) {
+    ESP_LOGW(TAG,
+             "connection_timeout_ms is %" PRIu32 ", below the %d ms minimum; "
+             "using the minimum.",
+             s_ctx.wifi_cfg.connection_timeout_ms, MIN_CONNECTION_TIMEOUT_MS);
+    s_ctx.wifi_cfg.connection_timeout_ms = MIN_CONNECTION_TIMEOUT_MS;
+  }
 
   ESP_LOGI(TAG, "Initializing WiFi manager...");
 
@@ -406,11 +434,18 @@ uint32_t wifi_manager_consecutive_reachability_failures(void) {
 /* The reconnect timer is one-shot. Every path that leaves us without a
  * connection must route through here, or reconnection stops permanently. */
 static void schedule_reconnect(const char* reason) {
-  ESP_LOGI(TAG, "Scheduling reconnect scan in %" PRIu32 " ms (%s)",
-           s_ctx.wifi_cfg.scan_interval_ms, reason);
+  /* wifi_manager_init() already clamped and said so once. Repeating the floor
+   * here is deliberate and silent: this is the one call that can turn a bad
+   * value into an unbounded scan loop, and it should not depend on having been
+   * reached through init to be safe. Warning again would print on every retry. */
+  uint32_t delay_ms = s_ctx.wifi_cfg.scan_interval_ms;
+  if (delay_ms < MIN_SCAN_INTERVAL_MS) {
+    delay_ms = MIN_SCAN_INTERVAL_MS;
+  }
+  ESP_LOGI(TAG, "Scheduling reconnect scan in %" PRIu32 " ms (%s)", delay_ms,
+           reason);
   esp_timer_stop(s_ctx.reconnect_timer);
-  esp_timer_start_once(s_ctx.reconnect_timer,
-                       s_ctx.wifi_cfg.scan_interval_ms * 1000ULL);
+  esp_timer_start_once(s_ctx.reconnect_timer, delay_ms * 1000ULL);
 }
 
 static void connect_timeout_cb(void* arg) {

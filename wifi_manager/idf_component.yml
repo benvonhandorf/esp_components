@@ -1,4 +1,4 @@
-version: "0.2.0"
+version: "0.2.1"
 description: >-
   WiFi station and access point with prioritised known networks, scanning,
   connection timeouts, reconnect backoff and an optional reachability check.
