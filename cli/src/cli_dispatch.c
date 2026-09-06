@@ -63,21 +63,53 @@ esp_err_t cli_register_group(const cli_group_t *group)
     return ESP_OK;
 }
 
+static cli_text_resolver_fn text_resolver;
+
+void cli_set_text_resolver(cli_text_resolver_fn fn)
+{
+    text_resolver = fn;
+}
+
+/*
+ * The text for a help or usage field: the pointer if there is one, otherwise
+ * the id through the resolver, otherwise nothing.
+ *
+ * Resolving into the caller's buffer rather than returning an owned string is
+ * what keeps the column alignment below working on a plain char*, and leaves
+ * the lifetime question with the caller's stack frame.
+ */
+static const char *text_of(const char *literal, uint16_t id, char *buf, size_t buflen)
+{
+    if (literal) {
+        return literal;
+    }
+    if (id != 0 && text_resolver) {
+        const char *s = text_resolver(id, buf, buflen);
+        if (s) {
+            return s;
+        }
+    }
+    return "";
+}
+
 void cli_print_help(const cli_group_t *group)
 {
+    char text[96];
+
     if (!group) {
         diag_printf("\nCommand groups (type a group name to list its commands):\n\n");
         for (size_t i = 0; i < group_count; i++) {
             diag_printf("  %-*s %s\n", HELP_SYNTAX_WIDTH, groups[i]->name,
-                        groups[i]->help ? groups[i]->help : "");
+                        text_of(groups[i]->help, groups[i]->help_id, text, sizeof(text)));
         }
         diag_printf("\nEvery command is '<group> <command>', e.g. 'gpio set 19 true'.\n");
         diag_printf("'help <group>' describes one group.\n\n");
         return;
     }
 
-    if (group->help) {
-        diag_printf("\n%s\n", group->help);
+    const char *group_help = text_of(group->help, group->help_id, text, sizeof(text));
+    if (group_help[0]) {
+        diag_printf("\n%s\n", group_help);
     }
 
     if (group->command_count == 0) {
@@ -88,12 +120,19 @@ void cli_print_help(const cli_group_t *group)
     diag_printf("\nCommands:\n");
     for (size_t i = 0; i < group->command_count; i++) {
         const cli_command_t *cmd = &group->commands[i];
+        const cli_command_text_t *ids = group->command_text ? &group->command_text[i] : NULL;
+
+        /* Two lookups, two buffers: the second would otherwise overwrite the
+         * first before the line is printed. */
+        char usage_buf[64];
+        const char *usage = text_of(cmd->usage, ids ? ids->usage_id : 0,
+                                    usage_buf, sizeof(usage_buf));
+
         char syntax[80];
         snprintf(syntax, sizeof(syntax), "%s %s%s%s", group->name, cmd->name,
-                 cmd->usage && cmd->usage[0] ? " " : "",
-                 cmd->usage ? cmd->usage : "");
+                 usage[0] ? " " : "", usage);
         diag_printf("  %-*s %s\n", HELP_SYNTAX_WIDTH, syntax,
-                    cmd->help ? cmd->help : "");
+                    text_of(cmd->help, ids ? ids->help_id : 0, text, sizeof(text)));
     }
     diag_printf("\n");
 }

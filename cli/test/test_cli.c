@@ -52,8 +52,8 @@ static const cli_command_t gpio_cmds[] = {
     {"blink", NULL,           "Blink a pin",  cmd_fail},
 };
 static const cli_group_t gpio_group = {
-    "gpio", "Digital pin access", gpio_cmds,
-    sizeof(gpio_cmds) / sizeof(gpio_cmds[0]),
+    .name = "gpio", .help = "Digital pin access", .commands = gpio_cmds,
+    .command_count = sizeof(gpio_cmds) / sizeof(gpio_cmds[0]),
 };
 
 static const cli_command_t nau_cmds[] = {
@@ -62,15 +62,16 @@ static const cli_command_t nau_cmds[] = {
 };
 /* A hyphenated group: this is what a submenu becomes. */
 static const cli_group_t nau_group = {
-    "i2c-nau7802", "NAU7802 bridge ADC", nau_cmds,
-    sizeof(nau_cmds) / sizeof(nau_cmds[0]),
+    .name = "i2c-nau7802", .help = "NAU7802 bridge ADC", .commands = nau_cmds,
+    .command_count = sizeof(nau_cmds) / sizeof(nau_cmds[0]),
 };
 
 static const cli_command_t i2c_cmds[] = {
     {"scan", NULL, "Scan the bus", cmd_record},
 };
 static const cli_group_t i2c_group = {
-    "i2c", "I2C master", i2c_cmds, sizeof(i2c_cmds) / sizeof(i2c_cmds[0]),
+    .name = "i2c", .help = "I2C master", .commands = i2c_cmds,
+    .command_count = sizeof(i2c_cmds) / sizeof(i2c_cmds[0]),
 };
 
 /* --- helpers --------------------------------------------------------------- */
@@ -221,6 +222,68 @@ static void test_arg_parsers(void)
     expect(cli_parse_pin_list("bad", &pins, &count) == -1, "non-numeric pin list refused");
 }
 
+/* --- help text supplied as ids rather than pointers ------------------------ */
+
+static const cli_command_t res_cmds[] = {
+    {"go", NULL, NULL, cmd_record},
+};
+static const cli_command_text_t res_text[] = {
+    {101, 102},
+};
+static const cli_group_t res_group = {
+    .name = "res",
+    .commands = res_cmds,
+    .command_count = sizeof(res_cmds) / sizeof(res_cmds[0]),
+    .command_text = res_text,
+    .help_id = 100,
+};
+
+static const char *fake_resolver(uint16_t id, char *buf, size_t buflen)
+{
+    switch (id) {
+    case 100: snprintf(buf, buflen, "a group whose help is elsewhere"); return buf;
+    case 101: snprintf(buf, buflen, "<arg>"); return buf;
+    case 102: snprintf(buf, buflen, "a command whose help is elsewhere"); return buf;
+    default:  return NULL;
+    }
+}
+
+static void test_text_resolver(void)
+{
+    expect(cli_register_group(&res_group) == ESP_OK, "register a group with text ids");
+
+    /* Without a resolver the ids mean nothing and the help is simply blank --
+     * a project that has no string catalogue must still print a usable table. */
+    run("help res");
+    expect(strstr(diag_capture_text(), "res go") != NULL,
+           "an unresolved group still lists its commands");
+    expect(strstr(diag_capture_text(), "elsewhere") == NULL,
+           "and prints no help text it cannot resolve");
+
+    cli_set_text_resolver(fake_resolver);
+
+    run("help res");
+    expect_contains(diag_capture_text(), "a group whose help is elsewhere",
+                    "group help comes from the resolver");
+    expect_contains(diag_capture_text(), "res go <arg>",
+                    "usage comes from the resolver and still forms the syntax line");
+    expect_contains(diag_capture_text(), "a command whose help is elsewhere",
+                    "command help comes from the resolver");
+
+    /* The two lookups per row must not share a buffer. */
+    const char *t = diag_capture_text();
+    const char *syntax = strstr(t, "res go <arg>");
+    expect(syntax && strstr(syntax, "a command whose help is elsewhere") != NULL,
+           "usage and help resolve into separate buffers on one line");
+
+    /* A literal still wins over an id, so a mixed table behaves. */
+    run("help gpio");
+    expect_contains(diag_capture_text(), "Drive a pin",
+                    "a literal is still used when one is given");
+
+    cli_set_text_resolver(NULL);
+}
+
 int main(void)
 {
     test_registration();
@@ -228,6 +291,7 @@ int main(void)
     test_errors_name_the_fix();
     test_help_and_bare_group();
     test_completion();
+    test_text_resolver();
     test_arg_parsers();
 
     printf("\n%s (%d failure%s)\n", failures ? "FAILED" : "PASSED",

@@ -3,6 +3,22 @@
 All notable changes to this component are documented here.
 The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
+## [Unreleased]
+
+### Added
+
+- Help and usage text may be supplied as ids instead of pointers, for a project
+  that keeps its prose on a filesystem rather than in the image. A group carries
+  an optional `command_text` array parallel to `commands[]`, plus its own
+  `help_id`, and `cli_set_text_resolver()` says how an id becomes words.
+
+  The ids live in a parallel array rather than in `cli_command_t` deliberately:
+  those rows are written as positional initialisers, and appending to the struct
+  would make every existing one a `-Wmissing-field-initializers` error under
+  `-Wextra -Werror`. Existing tables are untouched, and with no resolver
+  registered the ids are ignored, so a project without a string catalogue behaves
+  exactly as before.
+
 ## [0.1.0] - 2026-09-04
 
 ### Added

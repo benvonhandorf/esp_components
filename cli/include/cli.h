@@ -3,6 +3,7 @@
 
 #include <stdbool.h>
 #include <stddef.h>
+#include <stdint.h>
 
 #include "esp_err.h"
 
@@ -46,12 +47,47 @@ typedef struct {
     cli_command_fn fn;
 } cli_command_t;
 
+/*
+ * Where a command's help text lives when it is not a literal.
+ *
+ * A project that keeps its prose on a filesystem rather than in the image
+ * leaves .usage and .help NULL and supplies one of these per command, so the
+ * table carries two bytes instead of two strings. Resolution goes through
+ * cli_set_text_resolver(); without a resolver these are ignored and the
+ * pointers are all that matter.
+ *
+ * It is a parallel array rather than two more fields in cli_command_t
+ * deliberately: those rows are written as positional initialisers all over the
+ * place, and appending to the struct would make every one of them a
+ * -Wmissing-field-initializers error under -Wextra -Werror. This way an
+ * existing table is untouched, and so is every project that has one.
+ */
+typedef struct {
+    uint16_t usage_id; /* 0 for none */
+    uint16_t help_id;  /* 0 for none */
+} cli_command_text_t;
+
 typedef struct {
     const char *name;  /* "gpio", "i2c-nau7802" */
     const char *help;  /* one line */
     const cli_command_t *commands;
     size_t command_count;
+    /* NULL, or command_count entries parallel to commands[]. */
+    const cli_command_text_t *command_text;
+    uint16_t help_id;  /* used when help is NULL; 0 for none */
 } cli_group_t;
+
+/*
+ * Resolve a text id into caller-supplied storage, returning buf, or NULL if the
+ * id names nothing. Registering one is what makes the ids above mean anything.
+ *
+ * Deliberately a callback rather than a dependency: the same reasoning that
+ * keeps diag's sinks with their transports keeps the string catalogue out of
+ * this component, so cli still builds in a project that has no such thing.
+ */
+typedef const char *(*cli_text_resolver_fn)(uint16_t id, char *buf, size_t buflen);
+
+void cli_set_text_resolver(cli_text_resolver_fn fn);
 
 typedef struct {
     /* Printed once a terminal attaches. NULL for a default naming the chip. */
