@@ -1,4 +1,4 @@
-version: "0.1.0"
+version: "0.2.0"
 description: >-
   Browser transport for the cli shell: a single-page terminal served over HTTP
   with command lines carried on a WebSocket. Commands from a browser join the

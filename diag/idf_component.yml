@@ -1,4 +1,4 @@
-version: "0.1.0"
+version: "0.1.1"
 description: >-
   Command and log output fan-out: one formatted line reaches stdout and every
   registered sink, so a serial port, a web console and an MQTT topic all show

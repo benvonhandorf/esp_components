@@ -159,6 +159,16 @@ static esp_err_t start_listening(void)
     return ESP_OK;
 }
 
+/*
+ * The listener does not need an address, so this is a retry, not the main path.
+ *
+ * start_listening() binds INADDR_ANY, which is legal with no interface
+ * configured and unreachable until one is -- so the server is already listening
+ * by the time a link comes up. This stays because the bind can fail for
+ * transient reasons (no memory, no socket) at boot, and a link event is a
+ * reasonable moment to try again. start_listening() returns immediately when
+ * the server is already up, so the usual case costs nothing.
+ */
 static void on_net_event(void *arg, esp_event_base_t base, int32_t id, void *data)
 {
     (void)arg; (void)base; (void)data;
@@ -166,8 +176,6 @@ static void on_net_event(void *arg, esp_event_base_t base, int32_t id, void *dat
     switch ((net_event_id_t)id) {
         case NET_EVENT_LINK_UP:
         case NET_EVENT_AP_STARTED:
-            /* Also on the device's own AP: a device that joined no network is
-             * exactly the one that has to be reachable to be reconfigured. */
             start_listening();
             break;
         default:
@@ -210,8 +218,23 @@ esp_err_t http_server_start(const http_server_config_t *cfg)
     }
 
     s_configured = true;
-    ESP_LOGI(TAG, "ready; will listen on port %u once the network is up", s_cfg.port);
-    return ESP_OK;
+
+    /*
+     * Listen now, rather than waiting for a link.
+     *
+     * Waiting bought nothing: httpd binds INADDR_ANY, so the socket is not tied
+     * to an interface or an address, cannot be reached before one exists, and
+     * needs no restart when one changes. What it cost was the handle --
+     * http_server_handle() returned NULL for the whole of start-up, so a caller
+     * passing it to cli_web to share this server silently got a second server on
+     * the same port instead, and this one then failed to listen with EADDRINUSE
+     * once the link came up.
+     *
+     * A failure is still returned, and start_listening() has already said why:
+     * on_net_event() will try again, but a caller that meant to share this
+     * server must not carry on as though it had one.
+     */
+    return start_listening();
 }
 
 esp_err_t http_server_stop(void)

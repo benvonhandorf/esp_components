@@ -1,4 +1,4 @@
-version: "0.1.0"
+version: "0.1.1"
 description: >-
   Sets the system clock from NTP once the network is up. Subscribes to network
   link events, so it is started once at boot with no sequencing against

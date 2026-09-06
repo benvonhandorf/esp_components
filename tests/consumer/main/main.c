@@ -1,6 +1,9 @@
 #include <stdio.h>
 #include <string.h>
 
+#include "esp_event.h"
+#include "esp_netif.h"
+
 #include "cli.h"
 #include "cli_web.h"
 #include "app_config.h"           /* generated: the top-level walker */
@@ -268,7 +271,14 @@ static void check_http_and_ota(void)
 
     snprintf(cfg.password, sizeof(cfg.password), "not-the-default");
     expect(http_server_start(&cfg) == ESP_OK, "http_server starts once a password is set");
-    expect(!http_server_is_running(), "but does not listen before there is a link");
+
+    /* And listens straight away, with no link and no address. httpd binds
+     * INADDR_ANY, so the socket is not tied to an interface: it cannot be
+     * reached until one exists, and needs no restart when one changes. What that
+     * buys is the handle -- valid from here on, which is what lets cli_web share
+     * this server instead of opening a second listener on the same port. */
+    expect(http_server_is_running(), "and listens immediately, before any link");
+    expect(http_server_handle() != NULL, "so the handle is available to share");
 
     static const char STATUS[] = "{\"ok\":true}";
     static const http_route_t routes[] = {
@@ -394,6 +404,16 @@ static const cli_group_t demo_group = {
 
 void app_main(void)
 {
+    /*
+     * Prerequisites, not conveniences. Every manager below registers a handler
+     * on the default event loop, and http_server now opens its socket inside
+     * start() -- which lwIP cannot serve until esp_netif_init() has brought the
+     * TCP/IP thread up. Neither call joins a network or configures an interface,
+     * which is the point: this test never has an address.
+     */
+    ESP_ERROR_CHECK(esp_netif_init());
+    ESP_ERROR_CHECK(esp_event_loop_create_default());
+
     check_js2c();
     check_config();
     check_networking();
@@ -412,9 +432,12 @@ void app_main(void)
     ESP_ERROR_CHECK(cli_start(NULL));
 
     /*
-     * cli_web is not started here: it needs an IP address first, and this test
-     * never joins a network. Referencing it is enough to prove it links, which
-     * is what the build is checking.
+     * cli_web is not started here. It no longer needs an address -- it would
+     * come up on this server and simply drop output until a browser connected --
+     * but starting it would leave a shell reachable by anyone who reaches the
+     * device, which is a decision for an application rather than a default this
+     * test should model. Referencing it is enough to prove it links, which is
+     * what the build is checking.
      */
     (void)cli_web_start;
     (void)cli_web_stop;

@@ -8,7 +8,7 @@ static const http_route_t routes[] = {
     {"/api/config", HTTP_POST, handle_config, NULL,  true},  /* authenticated */
 };
 http_server_add_routes(routes, 2);
-http_server_start(&cfg);      /* listens once the network is up */
+http_server_start(&cfg);      /* listens immediately; no address needed */
 ```
 
 Routes may be registered before or after `start()`, and by components as well as by the
@@ -25,7 +25,16 @@ cli_web_config_t web = { .server = http_server_handle(), .page_uri = "/console" 
 cli_web_start(&web);
 ```
 
-Two listeners on one device is a bug, not a feature.
+Two listeners on one device is a bug, not a feature. `http_server_handle()` is valid as
+soon as `start()` returns, so this works at boot — it does not have to be deferred until
+the network is up. That is why `start()` listens straight away rather than waiting for a
+link: `httpd` binds `INADDR_ANY`, so the socket is not tied to an interface, cannot be
+reached before one exists and needs no restart when one changes. Waiting bought nothing
+and cost the handle, which a caller sharing the server silently replaced with a second
+server on the same port.
+
+`start()` therefore needs `esp_netif_init()` and `esp_event_loop_create_default()` to have
+run — it opens a socket — but nothing beyond that: no interface, no address, no link.
 
 ## Authentication
 

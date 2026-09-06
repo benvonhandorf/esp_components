@@ -20,7 +20,8 @@ extern "C" {
  * from a command typed on the serial port appears in the browser and vice
  * versa, which is the entire point.
  *
- * Start it once the device has an address.
+ * Start it at boot; it needs no address. Output produced before a browser
+ * connects is simply dropped.
  */
 
 typedef struct {
@@ -72,6 +73,20 @@ esp_err_t cli_web_stop(void);
 
 /* The server in use, borrowed or owned. NULL if not started. */
 httpd_handle_t cli_web_server(void);
+
+/*
+ * Chunks of output dropped rather than shown in the browser, since start.
+ *
+ * Output is queued to a task and the queue is bounded, because the sink can be
+ * called from lwIP's TCP/IP thread and must never block there. A browser that
+ * cannot keep up therefore loses lines instead of stalling the device. Counted
+ * here too are the lines the delivery path logs about its own failures, which
+ * are deliberately not sent onward: sending them is what failed.
+ *
+ * Non-zero means the browser's view of the log has holes in it; the serial
+ * console is written directly and is always complete.
+ */
+uint32_t cli_web_dropped(void);
 
 #ifdef __cplusplus
 }

@@ -16,11 +16,16 @@ extern "C" {
  * HTTP management interface: one server, routes registered as data, and optional
  * Basic authentication per route.
  *
- * Start it at boot: it subscribes to NET_EVENT_LINK_UP and NET_EVENT_AP_STARTED
- * and listens once there is an address, so no caller has to sequence it against
- * the network. It serves over the device's own access point too, which is when a
- * management interface matters most -- a device that joined nothing is the one
- * you need to reconfigure.
+ * Start it at boot, before the network: httpd binds INADDR_ANY, so the listener
+ * needs no address, cannot be reached until an interface has one, and needs no
+ * restart when one changes. http_server_handle() is therefore valid as soon as
+ * start() returns, which is what lets cli_web share this server rather than
+ * opening a second listener on the same port.
+ *
+ * It also subscribes to NET_EVENT_LINK_UP and NET_EVENT_AP_STARTED and retries
+ * there, so a bind that failed at boot for want of memory still comes up. Being
+ * reachable over the device's own access point is when a management interface
+ * matters most: a device that joined nothing is the one you need to reconfigure.
  */
 
 #define HTTP_SERVER_ERR_BASE 0x35000

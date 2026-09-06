@@ -32,9 +32,24 @@ extern "C" {
 /*
  * Receives a chunk of already-formatted output.
  *
- * Must not call diag_printf() or any other function here -- the fan-out holds
- * its lock across this call, and re-entering it would recurse until the stack
- * is gone.
+ * The fan-out holds its output lock across this call, and it is called from
+ * whatever task produced the line. Two rules follow from that, and both have
+ * been learned the hard way:
+ *
+ * 1. Do not call diag_printf() or anything else in this header. Re-entering the
+ *    fan-out recurses until the stack is gone.
+ *
+ * 2. Do not block, and in particular do not call into another subsystem and
+ *    wait for it. The caller may be *any* task, including lwIP's TCP/IP thread:
+ *    ESP_LOGx from an lwIP raw-API callback -- the SNTP time-sync notification
+ *    is one -- arrives here on that thread, and a socket call made from it
+ *    posts to the TCP/IP mailbox and waits for the thread that is already
+ *    inside this function. That deadlocks permanently, with the output lock
+ *    held, which silently kills every interface on the device.
+ *
+ * A sink whose transport can block must hand the text to its own task and
+ * return: a bounded queue with a zero-tick send, dropping and counting on
+ * overflow. See cli_web and mqtt_log_sink for the shape.
  */
 typedef void (*diag_sink_fn)(const char *text, size_t len, void *ctx);
 

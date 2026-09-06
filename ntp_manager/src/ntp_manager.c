@@ -17,12 +17,25 @@ static bool s_sntp_running; /* esp_netif_sntp_init() has been called */
 static bool s_synced;
 static struct timeval s_last_sync;
 
+/*
+ * Called by lwIP's SNTP client when the clock has been set.
+ *
+ * This runs on the TCP/IP thread: lwIP's SNTP is a raw-API UDP client, so
+ * sntp_recv() -> sntp_process() -> sntp_sync_time() reaches here with no task
+ * hop in between. Record, post, return -- and in particular do not log.
+ *
+ * ESP_LOGx here would be routed into diag, which calls its sinks with its
+ * output lock held on the calling task. A sink that touches a socket then makes
+ * the TCP/IP thread post to its own mailbox and wait for itself, deadlocking it
+ * with diag's lock held, which takes every interface on the device down with
+ * it. The line is logged from the NET_EVENT_TIME_SYNCED handler below instead,
+ * which runs on the event loop task.
+ */
 static void on_time_sync(struct timeval *tv)
 {
     s_synced = true;
     s_last_sync = *tv;
 
-    ESP_LOGI(TAG, "clock set from NTP: %lld", (long long)tv->tv_sec);
     net_events_post(NET_EVENT_TIME_SYNCED, tv, sizeof(*tv));
 }
 
@@ -84,7 +97,6 @@ static void on_net_event(void *arg, esp_event_base_t base, int32_t id, void *dat
 {
     (void)arg;
     (void)base;
-    (void)data;
 
     switch ((net_event_id_t)id) {
         case NET_EVENT_LINK_UP:
@@ -94,6 +106,13 @@ static void on_net_event(void *arg, esp_event_base_t base, int32_t id, void *dat
             /* Leave the client running: esp-sntp retries on its own, and tearing
              * it down here would lose the sync interval on every brief drop. */
             break;
+        case NET_EVENT_TIME_SYNCED: {
+            /* Our own event, come back round on the event loop task. This is
+             * where the sync is announced, because on_time_sync() may not. */
+            const struct timeval *tv = data;
+            ESP_LOGI(TAG, "clock set from NTP: %lld", (long long)tv->tv_sec);
+            break;
+        }
         default:
             break;
     }

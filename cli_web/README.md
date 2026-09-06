@@ -4,7 +4,7 @@ Browser transport for the [`cli`](../cli/) shell. Serves a single-page terminal 
 command lines over a WebSocket.
 
 ```c
-/* Once the device has an address. */
+/* At boot: no address needed. */
 cli_web_start(NULL);            /* own server on :80, page at "/", socket at "/ws" */
 ```
 
@@ -47,9 +47,19 @@ the `httpd_ws_*` functions being absent.
 - **The page is embedded** via `EMBED_FILES`, so the console works with no filesystem and
   no partition to keep in step with the firmware. It titles itself from `location.host`,
   so it names the device you are attached to, and selects `wss://` when served over HTTPS.
-- **The WebSocket handler does not echo.** Calling `diag_printf()` there would run the
-  output sink — and therefore `httpd_queue_work()` — on the HTTP server's own task, which
-  risks deadlocking against a full control queue. The browser echoes its own input locally.
-- **Output is dropped rather than blocking.** If an allocation for a frame fails, the chunk
-  is discarded: stalling the shell to guarantee a browser sees every byte is the wrong
-  trade for a diagnostic interface.
+- **The WebSocket handler does not echo.** It hands the line to `cli_submit(..., false)`
+  and returns, so the server task is free to serve the next request rather than sitting
+  out however long the command takes. The browser echoes its own input locally.
+- **The sink queues; a task does the sending.** `diag` calls its sinks on whatever task
+  produced the line, holding its output lock — and that task may be lwIP's TCP/IP thread,
+  because `ESP_LOGx` from an lwIP raw-API callback runs there. A socket call made from
+  that thread posts to the TCP/IP mailbox and waits for the thread already inside the
+  sink: a permanent deadlock, with `diag`'s lock held, which takes every interface on the
+  device down with it. So the sink copies the text onto a bounded queue and returns,
+  touching nothing that can block.
+- **Output is dropped rather than blocking.** A full queue, a failed allocation, or a
+  browser that cannot keep up costs lines, not time: stalling the shell — or the TCP/IP
+  thread — to guarantee a browser sees every byte is the wrong trade for a diagnostic
+  interface. `cli_web_dropped()` counts what was lost, so a gap in the browser's log is
+  visible rather than merely suspected. The serial console is written directly by `diag`
+  and is always complete.

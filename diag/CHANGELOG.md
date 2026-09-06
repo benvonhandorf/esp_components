@@ -3,6 +3,19 @@
 All notable changes to this component are documented here.
 The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
+## [0.1.1] - 2026-09-05
+
+### Documented
+
+- **What a sink may not do**, in `diag.h`. The existing rule -- do not re-enter the
+  fan-out -- was necessary and not sufficient. A sink is called on whatever task produced
+  the line, with the output lock held, and that task may be lwIP's TCP/IP thread, because
+  `ESP_LOGx` from an lwIP raw-API callback runs there. A sink that makes a socket call is
+  then posting to the TCP/IP mailbox and waiting for the thread that is already inside it:
+  a permanent deadlock with the output lock held, which takes every interface on the
+  device down at once. `cli_web` shipped that bug; the header now says why it was one, and
+  what shape a sink with a blocking transport has to take instead.
+
 ## [0.1.0] - 2026-09-04
 
 ### Added

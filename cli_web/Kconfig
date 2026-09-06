@@ -19,6 +19,25 @@ menu "cli_web: browser transport for the shell"
             malloc'd and handed to the server task, so larger values mean fewer,
             bigger allocations.
 
+    config CLI_WEB_BROADCAST_QUEUE_LEN
+        int "Output chunks that may be waiting for the broadcaster"
+        default 16
+        range 4 128
+        help
+            Output is queued to a task rather than pushed to the server from
+            whatever task produced it, because a sink may run on lwIP's TCP/IP
+            thread and must not make a socket call from there. This bounds how
+            far the broadcaster may fall behind; past it, chunks are dropped and
+            counted by cli_web_dropped().
+
+    config CLI_WEB_TX_STACK
+        int "Broadcaster task stack (bytes)"
+        default 3072
+        range 2048 8192
+        help
+            The task only moves queued chunks to the HTTP server's control
+            socket, so it needs little beyond what a socket call costs.
+
     config CLI_WEB_MAX_COMMAND_LEN
         int "Maximum command length accepted from a browser (bytes)"
         default 512
