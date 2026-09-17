@@ -1,4 +1,4 @@
-version: "0.1.0"
+version: "0.1.1"
 description: >-
   MQTT client with a topic-handler registry, last-will/birth messages and an
   optional log sink. Knows nothing about what the device does: topics are

@@ -3,7 +3,20 @@
 All notable changes to this component are documented here.
 The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
-## [0.1.0] - 2026-09-04
+## [0.1.1] - 2026-09-17
+
+### Fixed
+
+- **A brief link drop could silence publishing permanently.** `NET_EVENT_LINK_DOWN`
+  cleared the connected flag, and only `MQTT_EVENT_CONNECTED` set it again. When the link
+  returned with the same address -- a WiFi reconnect inside the IP-lost timer -- the TCP
+  socket survived, esp-mqtt saw no disconnect and sent no `CONNECTED`, and
+  `mqtt_manager_is_connected()` stayed false indefinitely. Every publish returned
+  `ESP_ERR_INVALID_STATE` while subscriptions kept delivering, so a watchdog fed by
+  inbound messages never noticed. The session flag is now set and cleared only by the
+  client's own events; `is_connected()` combines it with the link state, so
+  `NET_EVENT_LINK_UP` restores publishing. Masked in practice by `wifi_manager` < 0.3.0,
+  which waited two minutes before reconnecting.
 
 ### Added
 

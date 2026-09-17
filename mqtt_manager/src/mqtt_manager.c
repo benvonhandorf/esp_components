@@ -23,9 +23,9 @@ typedef struct {
 } subscription_t;
 
 static esp_mqtt_client_handle_t s_client;
-static bool s_connected;
+static bool s_connected;        /* the client's session: MQTT_EVENT_(DIS)CONNECTED */
 static bool s_running;          /* esp_mqtt_client_start() called */
-static bool s_link_up;
+static bool s_link_up;          /* the network under it: NET_EVENT_LINK_UP/DOWN */
 
 static mqtt_manager_config_t s_cfg;
 static char s_prefix[MAX_TOPIC];   /* $DEVICE$ already substituted */
@@ -39,9 +39,24 @@ const char *mqtt_manager_topic_prefix(void)
     return s_client ? s_prefix : NULL;
 }
 
+/*
+ * Two facts, owned by two sources, combined only here.
+ *
+ * s_connected used to be cleared on NET_EVENT_LINK_DOWN as well, so status would
+ * stop claiming a connection over a link that was gone. But only
+ * MQTT_EVENT_CONNECTED ever set it again, and a link that drops and returns with
+ * the same address -- a WiFi reconnect inside the IP-lost timer -- leaves the TCP
+ * socket intact. esp-mqtt never saw a disconnect, never sent CONNECTED, and the
+ * flag stayed false for good: every publish refused, the device silent, while
+ * inbound messages still arrived and kept any "am I alive" watchdog satisfied.
+ *
+ * Keeping the session flag as esp-mqtt reports it and ANDing in the link means
+ * a link that returns restores publishing, and a socket that did not survive is
+ * reported by esp-mqtt as a disconnect in the usual way.
+ */
 bool mqtt_manager_is_connected(void)
 {
-    return s_connected && s_client != NULL;
+    return s_connected && s_link_up && s_client != NULL;
 }
 
 static esp_err_t full_topic(char *out, size_t out_size, const char *suffix)
@@ -156,14 +171,16 @@ static void on_net_event(void *arg, esp_event_base_t base, int32_t id, void *dat
 
         case NET_EVENT_LINK_DOWN:
             /*
-             * Clear the flag but leave the client running. esp-mqtt reconnects on
-             * its own, and esp_mqtt_client_stop() blocks waiting for its task --
-             * which must not happen on the event loop. Without clearing it here,
-             * status reporting keeps claiming a connection that is gone, because
-             * stopping does not dispatch MQTT_EVENT_DISCONNECTED.
+             * Leave the client running. esp-mqtt reconnects on its own, and
+             * esp_mqtt_client_stop() blocks waiting for its task -- which must not
+             * happen on the event loop.
+             *
+             * Leave s_connected alone too: it is the client's to set and clear.
+             * Clearing s_link_up is enough for is_connected() to report false,
+             * and, unlike clearing s_connected, it is undone by the matching
+             * LINK_UP. See mqtt_manager_is_connected().
              */
             s_link_up = false;
-            s_connected = false;
             break;
 
         default:

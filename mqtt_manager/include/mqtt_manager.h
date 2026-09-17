@@ -56,7 +56,9 @@ typedef void (*mqtt_message_cb_t)(const char *topic, size_t topic_len,
 esp_err_t mqtt_manager_start(const mqtt_manager_config_t *cfg, const char *device_name);
 esp_err_t mqtt_manager_stop(void);
 
-/* True only when the broker connection is actually up. */
+/* True when the client holds a broker session and the network link is up.
+ * False while the link is down, even if the session's socket may survive it;
+ * true again when the link returns, unless the client reports the session lost. */
 bool mqtt_manager_is_connected(void);
 
 /*
