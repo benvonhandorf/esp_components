@@ -76,9 +76,27 @@
       "type": "integer",
       "minimum": 1000,
       "default": 120000,
-      "description": "Interval between network scans when disconnected (ms)",
+      "description": "Longest wait between reconnect scans when disconnected (ms). Retries start at reconnect_delay_ms and double up to this.",
       "js2cType": "uint32_t",
       "maximum": 3600000
+    },
+    "reconnect_delay_ms": {
+      "type": "integer",
+      "minimum": 1000,
+      "default": 1000,
+      "description": "Wait before the first reconnect scan after losing the link (ms). Each further attempt doubles it, up to scan_interval_ms.",
+      "js2cType": "uint32_t",
+      "maximum": 3600000
+    },
+    "power_save": {
+      "type": "boolean",
+      "default": false,
+      "description": "Station modem power saving (WIFI_PS_MIN_MODEM). Off by default: the radio sleeps between DTIM beacons, which saves power on a battery but costs missed beacons and latency on a marginal link."
+    },
+    "roaming": {
+      "type": "boolean",
+      "default": true,
+      "description": "Advertise 802.11k radio measurement and 802.11v BSS transition support, so an access point can steer the station to a better one on the same SSID. Takes effect only with CONFIG_ESP_WIFI_11KV_SUPPORT enabled."
     },
     "reachability_host": {
       "type": "string",

@@ -3,6 +3,46 @@
 All notable changes to this component are documented here.
 The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
+## [0.3.0] - 2026-09-17
+
+Found soak-testing a stationary ESP32-C3 on a two-access-point network: 86 reconnect
+events in six hours, with RSSI swinging between -56 and -82 dBm on a board that never
+moved.
+
+### Fixed
+
+- **The station joined the first access point it heard, not the strongest.** The
+  connect config left `scan_method` zeroed, which is `WIFI_FAST_SCAN`: the driver stops
+  at the first BSS matching the SSID, and `sort_method` is only honoured by an
+  all-channel scan. The manager's own scan compared RSSI but kept only which *network*
+  won, so on an SSID served by several access points the device joined whichever sat
+  on the lowest channel. Connects now use `WIFI_ALL_CHANNEL_SCAN` with
+  `WIFI_CONNECT_AP_BY_SIGNAL`. No BSSID is pinned, so a failed access point is still
+  failed over from.
+- **Every lost link waited `scan_interval_ms` (default two minutes) before its first
+  scan.** Reconnect scans now back off from the new `reconnect_delay_ms` (default 1 s),
+  doubling per scan up to `scan_interval_ms`, and reset once an address is obtained.
+- **Modem power saving was on by default.** The driver's `WIFI_PS_MIN_MODEM` sleeps the
+  radio between DTIM beacons, which on a marginal link means missed beacons, beacon
+  timeout disconnects and socket stalls for whatever runs over the link. Station mode
+  now sets `WIFI_PS_NONE` unless `power_save` is true.
+
+### Added
+
+- `roaming` (default true): sets `rm_enabled` and `btm_enabled`, so an 802.11k/v
+  access point can steer the station. Needs `CONFIG_ESP_WIFI_11KV_SUPPORT=y` in the
+  application; without it the flags are inert.
+- A BSS transition (disconnect reason 12, or 207 from Espressif's roaming app) while
+  connected is no longer handled as a lost link: no reconnect scan is started to
+  collide with the supplicant's own connect, and `NET_EVENT_LINK_DOWN` is not posted.
+  The connection timeout still applies, so a roam that goes nowhere becomes an ordinary
+  disconnect.
+- `wifi_manager_get_link_info()`: the associated BSSID, channel and RSSI, counts of
+  lost links and roams since boot, and the reason, RSSI and time of the last
+  disconnect -- so a device whose serial port resets it can report why it dropped.
+- Config properties `reconnect_delay_ms`, `power_save` and `roaming`, all defaulted.
+  `scan_interval_ms` now means the backoff's ceiling.
+
 ## [0.2.1] - 2026-09-06
 
 ### Fixed

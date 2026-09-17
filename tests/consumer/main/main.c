@@ -176,6 +176,22 @@ static void check_networking(void)
     expect(wifi_manager_scan(NULL, 4, &found) == ESP_ERR_INVALID_ARG,
            "wifi_manager_scan rejects a NULL record array");
 
+    wifi_manager_link_info_t link;
+    expect(wifi_manager_get_link_info(NULL) == ESP_ERR_INVALID_ARG,
+           "wifi_manager_get_link_info rejects a NULL out-parameter");
+    expect(wifi_manager_get_link_info(&link) == ESP_OK && !link.connected &&
+               link.link_losses == 0 && link.last_disconnect_reason == 0,
+           "link info before init reports no association and no history");
+
+    /* The reconnect and radio settings a device gets when it names none. */
+    static wifi_manager_config_t wifi_cfg;
+    expect(json_parse_wifi_manager_config("{\"known_networks\":[]}", &wifi_cfg),
+           "a minimal wifi section parses");
+    expect(wifi_cfg.reconnect_delay_ms == 1000 && wifi_cfg.scan_interval_ms == 120000,
+           "reconnect backs off from 1 s to the scan interval by default");
+    expect(!wifi_cfg.power_save && wifi_cfg.roaming,
+           "power save defaults off, roaming on");
+
     ntp_manager_config_t ntp = {0};
     snprintf(ntp.server, sizeof(ntp.server), "pool.ntp.org");
     snprintf(ntp.timezone, sizeof(ntp.timezone), "UTC0");

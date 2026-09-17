@@ -52,6 +52,41 @@ Notable fields:
   author's own LAN.
 - `connection_timeout_ms` — re-armed on association as well as on connect, so a stalled
   DHCP cannot wedge the state machine in CONNECTING.
+- `reconnect_delay_ms` / `scan_interval_ms` — after the link drops, the first reconnect
+  scan waits `reconnect_delay_ms` (1 s); each further scan doubles that, up to
+  `scan_interval_ms` (2 min).
+- `power_save` — off by default. Modem sleep costs missed beacons and latency on a weak
+  link; turn it on for a battery device.
+- `roaming` — on by default; advertises 802.11k/v so the access point can steer the
+  station. **Needs `CONFIG_ESP_WIFI_11KV_SUPPORT=y` in the application's
+  `sdkconfig.defaults`**, or it does nothing.
+
+## Choosing an access point
+
+A connect uses an all-channel scan sorted by signal, so on an SSID served by several
+access points the station joins the strongest. The default fast scan joins the *first*
+match — on a mesh, whichever access point sits on the lowest channel, however far away.
+No BSSID is pinned: a pinned BSSID cannot fail over, and the driver clears it anyway once
+BSS transition management is enabled.
+
+A BSS transition (disconnect reason 12, or 207) while connected is a roam, not a lost
+link: the supplicant is already connecting to the new access point, so no scan is started
+and `NET_EVENT_LINK_DOWN` is not posted. `NET_EVENT_LINK_UP` is posted again when the
+address is confirmed, which subscribers already have to tolerate.
+
+## Reporting why the link dropped
+
+```c
+wifi_manager_link_info_t link;
+wifi_manager_get_link_info(&link);
+/* link.connected, link.bssid, link.channel, link.rssi,
+ * link.link_losses, link.roams,
+ * link.last_disconnect_reason (wifi_err_reason_t), link.last_disconnect_rssi,
+ * link.last_disconnect_us */
+```
+
+Useful reasons: 200 beacon timeout, 201 no AP found, 15 4-way handshake timeout, 8 left
+(this station disconnected), 4 inactivity.
 
 ## Showing what is nearby
 

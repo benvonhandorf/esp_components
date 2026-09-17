@@ -84,6 +84,32 @@ esp_err_t wifi_manager_force_disconnect(void);
 void wifi_manager_record_reachability_result(bool is_reachable);
 uint32_t wifi_manager_consecutive_reachability_failures(void);
 
+/*
+ * What the station is attached to, and why it last lost that.
+ *
+ * A device on a bench whose serial port resets it cannot show its log, so the
+ * facts that explain a disconnect have to be reportable over whatever the link
+ * carries once it is back. The caller decides how to present them;
+ * last_disconnect_reason is a wifi_err_reason_t (esp_wifi_types_generic.h),
+ * e.g. 200 beacon timeout, 201 no AP found, 15 4-way handshake timeout.
+ */
+typedef struct {
+    bool connected;                  /* the rest of this group is valid */
+    uint8_t bssid[6];                /* access point currently associated */
+    uint8_t channel;
+    int8_t rssi;
+
+    uint32_t link_losses;            /* disconnects while the link was up, since boot */
+    uint32_t roams;                  /* BSS transitions, not counted as losses */
+    uint16_t last_disconnect_reason; /* any disconnect, incl. failed attempts; 0 = none */
+    int8_t last_disconnect_rssi;
+    int64_t last_disconnect_us;      /* esp_timer_get_time() at that event; 0 = none */
+} wifi_manager_link_info_t;
+
+/* ESP_ERR_INVALID_ARG for a NULL out-parameter; otherwise ESP_OK, with
+ * `connected` false when there is no association to describe. Safe from any task. */
+esp_err_t wifi_manager_get_link_info(wifi_manager_link_info_t *info);
+
 /* Time synchronisation moved to ntp_manager, which owns the clock and posts
  * NET_EVENT_TIME_SYNCED. It lived here only because this file happened to be
  * where esp_netif_sntp was initialised. */

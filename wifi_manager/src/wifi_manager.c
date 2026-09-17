@@ -31,6 +31,7 @@ static const char* TAG = "WIFI_MGR";
  */
 #define MIN_SCAN_INTERVAL_MS       1000
 #define MIN_CONNECTION_TIMEOUT_MS  1000
+#define MIN_RECONNECT_DELAY_MS     1000
 
 /* ------------------------------------------------------------------ */
 /* Module state                                                         */
@@ -50,9 +51,20 @@ typedef struct {
    * SCAN_DONE handler must not touch the records while it is set -- see the
    * comment there. */
   bool scan_for_caller;
+  /* Reconnect scans started since the link was last up; drives the backoff in
+   * schedule_reconnect(). Reset on GOT_IP. */
+  uint32_t reconnect_attempts;
+  /* Written by the event handler, read by any task through
+   * wifi_manager_get_link_info(); guarded by s_link_lock. */
+  uint32_t link_losses;
+  uint32_t roams;
+  uint16_t last_disconnect_reason;
+  int8_t last_disconnect_rssi;
+  int64_t last_disconnect_us;
 } wifi_manager_ctx_t;
 
 static wifi_manager_ctx_t s_ctx; /* zero-initialised at startup */
+static portMUX_TYPE s_link_lock = portMUX_INITIALIZER_UNLOCKED;
 
 /* ------------------------------------------------------------------ */
 /* Forward declarations for file-local helpers                          */
@@ -96,6 +108,13 @@ esp_err_t wifi_manager_init(const wifi_manager_config_t* wifi_cfg) {
              "using the minimum.",
              s_ctx.wifi_cfg.connection_timeout_ms, MIN_CONNECTION_TIMEOUT_MS);
     s_ctx.wifi_cfg.connection_timeout_ms = MIN_CONNECTION_TIMEOUT_MS;
+  }
+  if (s_ctx.wifi_cfg.reconnect_delay_ms < MIN_RECONNECT_DELAY_MS) {
+    ESP_LOGW(TAG,
+             "reconnect_delay_ms is %" PRIu32 ", below the %d ms minimum; "
+             "using the minimum.",
+             s_ctx.wifi_cfg.reconnect_delay_ms, MIN_RECONNECT_DELAY_MS);
+    s_ctx.wifi_cfg.reconnect_delay_ms = MIN_RECONNECT_DELAY_MS;
   }
 
   ESP_LOGI(TAG, "Initializing WiFi manager...");
@@ -177,6 +196,20 @@ esp_err_t wifi_manager_start_station_mode(void) {
   ESP_LOGI(TAG, "Starting WiFi in station mode...");
   ESP_ERROR_CHECK(esp_wifi_set_mode(WIFI_MODE_STA));
   ESP_ERROR_CHECK(esp_wifi_start());
+
+  /*
+   * The driver defaults a station to WIFI_PS_MIN_MODEM, which sleeps the radio
+   * between DTIM beacons. On a marginal link that turns into missed beacons, a
+   * beacon-timeout disconnect, and latency long enough to stall a socket read in
+   * whatever runs over the link -- so it is opt-in. Not fatal: the driver refuses
+   * WIFI_PS_NONE while Bluetooth coexistence is active.
+   */
+  wifi_ps_type_t ps = s_ctx.wifi_cfg.power_save ? WIFI_PS_MIN_MODEM : WIFI_PS_NONE;
+  esp_err_t ps_err = esp_wifi_set_ps(ps);
+  if (ps_err != ESP_OK) {
+    ESP_LOGW(TAG, "Failed to set power save mode %d: %s", (int)ps,
+             esp_err_to_name(ps_err));
+  }
 
   s_ctx.state = WIFI_MANAGER_STA_DISCONNECTED;
   return ESP_OK;
@@ -427,23 +460,65 @@ uint32_t wifi_manager_consecutive_reachability_failures(void) {
   return s_ctx.consecutive_reachability_count;
 }
 
+esp_err_t wifi_manager_get_link_info(wifi_manager_link_info_t* info) {
+  if (info == NULL) {
+    return ESP_ERR_INVALID_ARG;
+  }
+  memset(info, 0, sizeof(*info));
+
+  taskENTER_CRITICAL(&s_link_lock);
+  info->link_losses = s_ctx.link_losses;
+  info->roams = s_ctx.roams;
+  info->last_disconnect_reason = s_ctx.last_disconnect_reason;
+  info->last_disconnect_rssi = s_ctx.last_disconnect_rssi;
+  info->last_disconnect_us = s_ctx.last_disconnect_us;
+  taskEXIT_CRITICAL(&s_link_lock);
+
+  if (s_ctx.state == WIFI_MANAGER_STA_CONNECTED) {
+    wifi_ap_record_t ap;
+    if (esp_wifi_sta_get_ap_info(&ap) == ESP_OK) {
+      info->connected = true;
+      memcpy(info->bssid, ap.bssid, sizeof(info->bssid));
+      info->channel = ap.primary;
+      info->rssi = ap.rssi;
+    }
+  }
+  return ESP_OK;
+}
+
 /* ------------------------------------------------------------------ */
 /* File-local helpers                                                   */
 /* ------------------------------------------------------------------ */
 
 /* The reconnect timer is one-shot. Every path that leaves us without a
- * connection must route through here, or reconnection stops permanently. */
+ * connection must route through here, or reconnection stops permanently.
+ *
+ * The delay backs off: reconnect_delay_ms for the first scan after the link was
+ * lost, doubling per scan started, capped at scan_interval_ms. A flat
+ * scan_interval_ms used to apply to every retry, so a one-second drop cost two
+ * minutes offline before the first scan. */
 static void schedule_reconnect(const char* reason) {
-  /* wifi_manager_init() already clamped and said so once. Repeating the floor
+  /* wifi_manager_init() already clamped and said so once. Repeating the floors
    * here is deliberate and silent: this is the one call that can turn a bad
    * value into an unbounded scan loop, and it should not depend on having been
    * reached through init to be safe. Warning again would print on every retry. */
-  uint32_t delay_ms = s_ctx.wifi_cfg.scan_interval_ms;
-  if (delay_ms < MIN_SCAN_INTERVAL_MS) {
-    delay_ms = MIN_SCAN_INTERVAL_MS;
+  uint32_t max_ms = s_ctx.wifi_cfg.scan_interval_ms;
+  if (max_ms < MIN_SCAN_INTERVAL_MS) {
+    max_ms = MIN_SCAN_INTERVAL_MS;
   }
-  ESP_LOGI(TAG, "Scheduling reconnect scan in %" PRIu32 " ms (%s)", delay_ms,
-           reason);
+  uint64_t delay_ms = s_ctx.wifi_cfg.reconnect_delay_ms;
+  if (delay_ms < MIN_RECONNECT_DELAY_MS) {
+    delay_ms = MIN_RECONNECT_DELAY_MS;
+  }
+  /* Bounded so a long outage cannot shift past 64 bits; any shift near the
+   * bound is already far beyond the schema's largest scan_interval_ms. */
+  uint32_t shift = s_ctx.reconnect_attempts < 22 ? s_ctx.reconnect_attempts : 22;
+  delay_ms <<= shift;
+  if (delay_ms > max_ms) {
+    delay_ms = max_ms;
+  }
+  ESP_LOGI(TAG, "Scheduling reconnect scan in %" PRIu64 " ms (%s, attempt %" PRIu32 ")",
+           delay_ms, reason, s_ctx.reconnect_attempts + 1);
   esp_timer_stop(s_ctx.reconnect_timer);
   esp_timer_start_once(s_ctx.reconnect_timer, delay_ms * 1000ULL);
 }
@@ -478,6 +553,10 @@ static void start_reconnect_scan(void) {
       .show_hidden = false,
   };
   esp_err_t ret = esp_wifi_scan_start(&scan_config, false); /* non-blocking */
+  /* Counted per scan, not per schedule_reconnect() call: one failure can route
+   * through there twice (a connect timeout, then the disconnect it causes), and
+   * that should not double the backoff. */
+  s_ctx.reconnect_attempts++;
   if (ret != ESP_OK) {
     ESP_LOGE(TAG, "Failed to start reconnect scan: 0x%x - %s", ret,
              esp_err_to_name(ret));
@@ -572,6 +651,25 @@ static esp_err_t connect_to_best_network(int best_index) {
           sizeof(wifi_config.sta.password) - 1);
   wifi_config.sta.threshold.authmode = WIFI_AUTH_WPA2_PSK;
 
+  /*
+   * Join the strongest access point for this SSID, not the first one heard.
+   * The zeroed default is WIFI_FAST_SCAN, which stops at the first match --
+   * sort_method is only honoured by an all-channel scan -- so on a network with
+   * several access points the station joined whichever sat on the lowest
+   * channel, however weak. The scan above picked the network; this lets the
+   * driver pick the access point.
+   *
+   * Deliberately no bssid_set: a pinned BSSID cannot fail over to another
+   * access point, and the driver clears one anyway once BTM is enabled.
+   */
+  wifi_config.sta.scan_method = WIFI_ALL_CHANNEL_SCAN;
+  wifi_config.sta.sort_method = WIFI_CONNECT_AP_BY_SIGNAL;
+
+  /* Lets the access point steer us (802.11v) and tell us its neighbours
+   * (802.11k). Inert unless CONFIG_ESP_WIFI_11KV_SUPPORT is enabled. */
+  wifi_config.sta.rm_enabled = s_ctx.wifi_cfg.roaming ? 1 : 0;
+  wifi_config.sta.btm_enabled = s_ctx.wifi_cfg.roaming ? 1 : 0;
+
   esp_err_t ret = esp_wifi_set_config(WIFI_IF_STA, &wifi_config);
   if (ret != ESP_OK) {
     ESP_LOGE(TAG, "Failed to set station config: 0x%x - %s", ret,
@@ -619,8 +717,45 @@ static void wifi_event_handler(void* arg, esp_event_base_t event_base,
       case WIFI_EVENT_STA_DISCONNECTED: {
         const wifi_event_sta_disconnected_t* disc =
             (const wifi_event_sta_disconnected_t*)event_data;
-        ESP_LOGI(TAG, "WiFi station disconnected (reason %d)",
-                 disc != NULL ? disc->reason : -1);
+        uint16_t reason = disc != NULL ? disc->reason : 0;
+        ESP_LOGI(TAG, "WiFi station disconnected (reason %u, rssi %d)",
+                 (unsigned)reason, disc != NULL ? disc->rssi : 0);
+
+        /*
+         * A BSS transition. The supplicant disassociates with reason 12 and
+         * calls esp_wifi_connect() for the new access point itself; Espressif's
+         * roaming app uses 207. Treating it as a lost link would start a scan
+         * that collides with the connect already in flight and tell every
+         * service the network went away for what should be a sub-second
+         * handoff. Wait for it like any connect: GOT_IP completes it, and the
+         * timeout turns a roam that goes nowhere into an ordinary disconnect.
+         */
+        bool roaming = reason == WIFI_REASON_BSS_TRANSITION_DISASSOC ||
+                       reason == WIFI_REASON_ROAMING;
+        bool was_up = ctx->state == WIFI_MANAGER_STA_CONNECTED;
+
+        taskENTER_CRITICAL(&s_link_lock);
+        ctx->last_disconnect_reason = reason;
+        ctx->last_disconnect_rssi = disc != NULL ? disc->rssi : 0;
+        ctx->last_disconnect_us = esp_timer_get_time();
+        if (was_up) {
+          if (roaming) {
+            ctx->roams++;
+          } else {
+            ctx->link_losses++;
+          }
+        }
+        taskEXIT_CRITICAL(&s_link_lock);
+
+        if (roaming && was_up) {
+          ESP_LOGI(TAG, "Roaming to another access point");
+          ctx->state = WIFI_MANAGER_STA_CONNECTING;
+          esp_timer_stop(ctx->connect_timeout_timer);
+          esp_timer_start_once(ctx->connect_timeout_timer,
+                               ctx->wifi_cfg.connection_timeout_ms * 1000ULL);
+          break;
+        }
+
         ctx->state = WIFI_MANAGER_STA_DISCONNECTED;
 
         stop_reachability_check();
@@ -690,6 +825,7 @@ static void wifi_event_handler(void* arg, esp_event_base_t event_base,
 
         ESP_LOGI(TAG, "Got IP: " IPSTR, IP2STR(&event->ip_info.ip));
         ctx->state = WIFI_MANAGER_STA_CONNECTED;
+        ctx->reconnect_attempts = 0;
 
         {
           net_event_link_t info;
