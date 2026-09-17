@@ -76,6 +76,25 @@ console see. Two hazards it has to avoid, both of which are silent when got wron
 Lines dropped while disconnected are counted (`mqtt_log_sink_dropped()`) rather than lost
 silently.
 
+## Known bugs
+
+- **The "link is already up" shortcut in `mqtt_manager_start()` can never fire on a first
+  start.** `s_link_up` is set only by the `NET_EVENT` handler, and that handler is
+  registered by `start()` itself a few lines earlier — so on the first call the flag is
+  still false however long the network has been up, and the client is not started. It then
+  waits for the *next* `NET_EVENT_LINK_UP`, which on a device that is already connected
+  means the next time the link drops and returns. The symptom is a device that is plainly
+  on the network and never reaches the broker.
+
+  It works today only because callers start MQTT before the network — the order every
+  example here uses. A caller that starts MQTT lazily, after a link exists, hits it.
+
+  The flag is also stale across a `stop()`/`start()` pair: `stop()` unregisters the
+  handler but leaves `s_link_up` set, so the second `start()` may believe in a link that
+  went away while it was stopped. Both want the same fix — ask the network whether an
+  interface has an address rather than inferring it from an event this component may have
+  been absent for.
+
 ## Tests
 
 ```sh
