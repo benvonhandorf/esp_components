@@ -1,4 +1,4 @@
-version: "0.1.0"
+version: "0.2.1"
 description: >-
   A command shell for bring-up and field diagnostics, reachable over serial and
   over a browser at the same time. Commands are addressed as "<group> <command>";
@@ -19,4 +19,4 @@ dependencies:
   diag:
     git: https://github.com/benvonhandorf/esp_components.git
     path: diag
-    version: diag-v0.1.0
+    version: diag-v0.1.1

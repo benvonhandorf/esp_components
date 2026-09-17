@@ -3,7 +3,15 @@
 All notable changes to this component are documented here.
 The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
-## [Unreleased]
+## [0.2.1] - 2026-09-17
+
+### Changed
+
+- Names `diag-v0.1.1`, whose header documents what a sink may not do: block, or
+  call into another subsystem and wait for it. No code change; the pin exists so a
+  project consuming both cannot end up with two `diag` refs in one build.
+
+## [0.2.0] - 2026-09-06
 
 ### Added
 
