@@ -1,4 +1,4 @@
-version: "0.2.1"
+version: "0.2.2"
 description: >-
   Browser transport for the cli shell: a single-page terminal served over HTTP
   with command lines carried on a WebSocket. Commands from a browser join the
@@ -19,9 +19,9 @@ dependencies:
   cli:
     git: https://github.com/benvonhandorf/esp_components.git
     path: cli
-    version: cli-v0.2.0
+    version: cli-v0.2.1
   # output mirrored to every connected browser
   diag:
     git: https://github.com/benvonhandorf/esp_components.git
     path: diag
-    version: diag-v0.1.0
+    version: diag-v0.1.1

@@ -3,6 +3,22 @@
 All notable changes to this component are documented here.
 The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
+## [0.2.2] - 2026-09-17
+
+### Changed
+
+- Names `cli-v0.2.1` and `diag-v0.1.1`. No code change: both are pin moves, so
+  that a project consuming cli_web, cli, mqtt_manager and diag resolves one ref
+  per component rather than two.
+
+## [0.2.1] - 2026-09-06
+
+### Changed
+
+- Names `cli-v0.2.0`, for the help-text resolver. Tagged without this entry at
+  the time; recorded here because a released version with no changelog line is
+  indistinguishable from one nobody wrote down.
+
 ## [0.2.0] - 2026-09-05
 
 ### Fixed
