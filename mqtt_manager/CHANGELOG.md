@@ -3,6 +3,14 @@
 All notable changes to this component are documented here.
 The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
+## [0.1.2] - 2026-09-17
+
+### Changed
+
+- Names `diag-v0.1.1`. No code change; `mqtt_log_sink` already has the shape that
+  version's header describes -- it queues and returns rather than publishing on
+  the producing task.
+
 ## [0.1.1] - 2026-09-17
 
 ### Fixed

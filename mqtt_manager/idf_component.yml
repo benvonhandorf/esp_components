@@ -1,4 +1,4 @@
-version: "0.1.1"
+version: "0.1.2"
 description: >-
   MQTT client with a topic-handler registry, last-will/birth messages and an
   optional log sink. Knows nothing about what the device does: topics are
@@ -31,4 +31,4 @@ dependencies:
   diag:
     git: https://github.com/benvonhandorf/esp_components.git
     path: diag
-    version: diag-v0.1.0
+    version: diag-v0.1.1
