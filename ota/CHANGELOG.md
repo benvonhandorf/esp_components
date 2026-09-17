@@ -3,6 +3,15 @@
 All notable changes to this component are documented here.
 The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
+## [0.1.1] - 2026-09-17
+
+### Changed
+
+- Names `http_server-v0.2.0`, which listens from `start()` instead of waiting for
+  a link. `ota_http` only calls `http_server_add_routes()`, which is unchanged, so
+  nothing here changes; the pin exists so a project cannot be handed two
+  `http_server` refs to resolve in one build.
+
 ## [0.1.0] - 2026-09-04
 
 ### Added
