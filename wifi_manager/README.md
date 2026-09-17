@@ -123,3 +123,19 @@ join a known network; the reconnect timer is re-armed so the attempt is not lost
   away while it was in flight.
 - **A leftover ping session is deleted before a new one is created**, rather than
   overwriting the handle and leaking it.
+
+## Known bugs
+
+- **`priority` is documented but never read.** `connect_from_scan_results()` picks the
+  known network whose strongest visible access point has the best RSSI; the `priority`
+  field of `known_networks` takes no part in it, so a lower-priority network that happens
+  to be nearer wins. The field is `required` in the schema, which makes it look load
+  bearing. Either the selection should order by `priority` first and use RSSI to break
+  ties, or the field should go — but it cannot quietly stay as decoration, because "the
+  highest-priority visible network wins a scan" is what the Configuration section above
+  promises. No effect on a device with a single known network, which is why it went
+  unnoticed.
+
+  `wifi_manager_add_known_network()` sets `priority = 0` on every network it adds, which
+  is the same gap seen from the other side: there is no argument for it because nothing
+  consumes it.
