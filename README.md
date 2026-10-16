@@ -32,6 +32,7 @@ not drag in changes to the others.
 | [ntp_manager](ntp_manager/) | Sets the clock from NTP once the link is up, and posts a time-synced event |
 | [mqtt_manager](mqtt_manager/) | MQTT with a topic-handler registry, last-will/birth messages and an optional log sink; knows nothing about what the device does |
 | [http_server](http_server/) | One HTTP server, routes registered as data, Basic auth decided per route; refuses to start authenticated with no password |
+| [pdm_decimator](pdm_decimator/) | Software PDM-to-PCM decimation for one to eight microphones on a raw PDM receiver: a sinc^6 and a faster two-stage filter, with ESP32-S3 vector code and a portable C reference |
 | [ota](ota/) | Firmware update to the inactive slot with rollback; rejects the wrong binary early and says which step failed |
 
 ### Device drivers
@@ -76,6 +77,7 @@ make -C ina219/test
 make -C ina226/test
 make -C ina237/test
 make -C lm75bdp/test
+make -C pdm_decimator/test
 make -C rx8130ce/test
 cd tests/consumer && idf.py set-target esp32s3 && idf.py build
 tests/publish_check.sh                 # after pushing the commit and its tags

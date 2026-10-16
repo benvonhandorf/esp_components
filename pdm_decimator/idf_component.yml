@@ -1,0 +1,21 @@
+version: "0.1.0"
+description: >-
+  Software PDM-to-PCM decimation for a raw PDM receiver, one to eight
+  microphones: a sixth-order sinc and a faster two-stage filter whose second
+  stage runs on the ESP32-S3 vector unit, each with a portable C version of the
+  same arithmetic. Takes words of bits and returns 16-bit PCM; touches no
+  hardware.
+url: https://github.com/benvonhandorf/esp_components/tree/main/pdm_decimator
+repository: https://github.com/benvonhandorf/esp_components.git
+issues: https://github.com/benvonhandorf/esp_components/issues
+tags:
+  - audio
+  - pdm
+  - microphone
+  - dsp
+  - decimation
+dependencies:
+  # Nothing here is newer than IDF 5.x: heap_caps_aligned_alloc() and the
+  # Xtensa EE assembler mnemonics the S3 build uses. The floor states the range
+  # this was verified against rather than a feature it needs.
+  idf: ">=5.3"
