@@ -18,8 +18,15 @@ MCLK pin.
   it are gain.
 - Starts muted at the lowest volume code.
 
-### Not yet verified on hardware
+### Verified on hardware
 
-The register sequences follow Espressif's published driver. The chip ID values
-(0x83, 0x11) and the volume scale are from the datasheet and have not yet been read
-back from a part.
+On an M5Stack Cardputer Adv (ESP32-S3, no MCLK pin): the chip ID reads 0x83, 0x11,
+version 0x01; the clock plan is /1 x8 at both 8 kHz and 48 kHz; playback and
+microphone capture work, with a tone at 1 kHz heard by the microphone 50 to 57 dB above
+the quiet floor.
+
+### Not yet verified
+
+The volume scale (0x00 = -95.5 dB, 0xBF = 0 dB) is from the datasheet and has been
+heard to change the level but not measured against a calibrated source. The PDM
+microphone path (`es8311_mic_t.digital`) has not been exercised.
