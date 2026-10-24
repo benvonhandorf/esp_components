@@ -1,0 +1,18 @@
+version: "0.1.0"
+description: >-
+  Everest ES8311 mono audio codec: speaker DAC and analog or PDM microphone ADC,
+  run as an I2S slave with or without an MCLK pin. Clock dividers and the volume
+  scale are host-tested. Returns facts rather than formatted text, so the caller
+  decides how to report them.
+url: https://github.com/benvonhandorf/esp_components/tree/main/es8311
+repository: https://github.com/benvonhandorf/esp_components.git
+issues: https://github.com/benvonhandorf/esp_components/issues
+tags:
+  - audio
+  - codec
+  - es8311
+  - i2s
+  - i2c
+dependencies:
+  # i2c_master_dev_handle_t and the i2c_master API it belongs to.
+  idf: ">=5.3"
