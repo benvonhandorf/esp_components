@@ -17,6 +17,8 @@
 #include "int_dispatch.h"
 #include "lm75bdp.h"
 #include "pi4ioe5v6408.h"
+#include "es8311.h"
+#include "tone_gen.h"
 #include "rx8130ce.h"
 #include "mdns_manager.h"
 #include "ota.h"
@@ -433,6 +435,45 @@ static const cli_group_t demo_group = {
     .command_count = sizeof(demo_cmds) / sizeof(demo_cmds[0]),
 };
 
+/* --- audio: the codec's clock arithmetic and the signal generator ---------- */
+
+static void check_audio(void) {
+    /* No MCLK pin, 16-bit stereo at 8 kHz: a 256 kHz bit clock, brought to
+     * 256 x fs by the pre-multiplier. */
+    es8311_clock_plan_t plan;
+    expect(es8311_clock_plan(256000, 8000, &plan) == ESP_OK &&
+           plan.pre_div == 1 && plan.pre_mult == 8, "es8311: 256 kHz bit clock at 8 kHz is /1 x8");
+    expect(es8311_clock_plan(1536000, 32000, &plan) == ESP_ERR_ES8311_UNSUPPORTED_CLOCK,
+           "es8311: an unreachable clock is refused");
+
+    /* A handle can be created before any bus exists, and refuses to touch one. */
+    es8311_handle_t codec = NULL;
+    uint8_t value;
+    expect(es8311_create(NULL, &codec) == ESP_OK, "es8311: handle without a bus");
+    expect(es8311_read_reg(codec, 0xFD, &value) == ESP_ERR_INVALID_STATE,
+           "es8311: no bus gives ESP_ERR_INVALID_STATE");
+    es8311_delete(codec);
+
+    tone_gen_config_t cfg = {
+        .sample_rate_hz = 8000, .start_hz = 1000.0, .end_hz = 1000.0,
+        .duration_samples = 800, .peak = 10000, .ramp_ms = 5,
+    };
+    tone_gen_t gen;
+    int16_t block[64];
+    size_t total = 0, n;
+    expect(tone_gen_init(&gen, &cfg) == ESP_OK, "tone_gen: init");
+    while ((n = tone_gen_fill(&gen, block, 64)) > 0) total += n;
+    expect(total == 800 && tone_gen_done(&gen), "tone_gen: a 100 ms tone is 800 samples");
+
+    tone_gen_dtmf_config_t dcfg = TONE_GEN_DTMF_CONFIG_DEFAULT(8000);
+    tone_gen_dtmf_t dial;
+    total = 0;
+    expect(tone_gen_dtmf_init(&dial, &dcfg, "5551234") == ESP_OK, "tone_gen: dtmf init");
+    while ((n = tone_gen_dtmf_fill(&dial, block, 64)) > 0) total += n;
+    expect(total == tone_gen_dtmf_total_samples(&dcfg, "5551234") && total == 10400,
+           "tone_gen: 5551234 is 10400 samples at 8 kHz");
+}
+
 void app_main(void)
 {
     /*
@@ -451,6 +492,7 @@ void app_main(void)
     check_mqtt();
     check_http_and_ota();
     check_drivers();
+    check_audio();
 
     ESP_ERROR_CHECK(diag_init(NULL));
     ESP_ERROR_CHECK(cli_register_group(&demo_group));

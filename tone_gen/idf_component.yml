@@ -1,0 +1,17 @@
+version: "0.1.0"
+description: >-
+  Audio test-signal generation: an integer sine oscillator on a 258-byte
+  quarter-wave table, steady tones and linear or logarithmic sweeps with
+  raised-cosine edges. Mono int16 out, pull model, no heap and no hardware, so
+  the same generator feeds any I2S codec, a file or a host test.
+url: https://github.com/benvonhandorf/esp_components/tree/main/tone_gen
+repository: https://github.com/benvonhandorf/esp_components.git
+issues: https://github.com/benvonhandorf/esp_components/issues
+tags:
+  - audio
+  - tone
+  - sweep
+  - signal-generator
+  - dsp
+dependencies:
+  idf: ">=5.3"
