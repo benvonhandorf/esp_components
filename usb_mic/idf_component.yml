@@ -1,0 +1,27 @@
+version: "0.1.0"
+description: >-
+  USB Audio Class 2 microphone for chips with a USB OTG controller (ESP32-S2, S3,
+  P4, S31). Descriptors are built at run time from a channel count, sample rate and
+  sample width, and checked against the controller's isochronous FIFO budget before
+  USB starts. PCM in, an isochronous async IN endpoint out.
+url: https://github.com/benvonhandorf/esp_components/tree/main/usb_mic
+repository: https://github.com/benvonhandorf/esp_components.git
+issues: https://github.com/benvonhandorf/esp_components/issues
+tags:
+  - usb
+  - audio
+  - uac2
+  - microphone
+dependencies:
+  idf: ">=5.3"
+  espressif/tinyusb:
+    version: "^0.19.0~3"
+    rules:
+      - if: "target in [esp32s2, esp32s3, esp32p4, esp32s31]"
+targets:
+  - esp32s2
+  - esp32s3
+  - esp32p4
+  - esp32s31
+  - esp32c3
+  - esp32

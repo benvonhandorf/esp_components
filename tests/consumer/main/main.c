@@ -19,6 +19,8 @@
 #include "pi4ioe5v6408.h"
 #include "es8311.h"
 #include "tone_gen.h"
+#include "soc/soc_caps.h"
+#include "usb_mic.h"
 #include "rx8130ce.h"
 #include "mdns_manager.h"
 #include "ota.h"
@@ -472,6 +474,21 @@ static void check_audio(void) {
     while ((n = tone_gen_dtmf_fill(&dial, block, 64)) > 0) total += n;
     expect(total == tone_gen_dtmf_total_samples(&dcfg, "5551234") && total == 10400,
            "tone_gen: 5551234 is 10400 samples at 8 kHz");
+
+    /* usb_mic: the arithmetic builds on every chip; the device is stubs where there is no
+     * USB OTG controller. */
+    {
+        usb_mic_config_t mic = {.rate_hz = 48000, .channels = 2, .bytes = 2};
+        usb_mic_check_t chk;
+        expect(usb_mic_check(&USB_MIC_CONTROLLER_ESP32S3, &mic, &chk) == ESP_OK &&
+               chk.needed == 196 && chk.budget == 712, "usb_mic: 2 x 48 kHz fits an S3 packet");
+        mic.channels = 8;
+        expect(usb_mic_check(&USB_MIC_CONTROLLER_ESP32S3, &mic, NULL) == USB_MIC_ERR_OVER_BUDGET,
+               "usb_mic: 8 x 48 kHz does not");
+#if !SOC_USB_OTG_SUPPORTED
+        expect(usb_mic_controller() == NULL, "usb_mic: no controller on this chip");
+#endif
+    }
 }
 
 void app_main(void)

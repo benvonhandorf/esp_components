@@ -53,7 +53,8 @@ These rules were learned the hard way, extracting drivers out of an application 
   | `0x36000` | ota          | | `0x3E000` | ina239 |
   | `0x37000` | ina226       | | `0x3F000` | pdm_decimator |
   | `0x40000` | es8311       | | `0x41000` | tone_gen |
-  | `0x42000` | *next free* |
+  | `0x42000` | usb_mic      | |
+  | `0x43000` | *next free* |
 - **Each component sets its own `-Wall -Wextra -Werror`, PRIVATE on `COMPONENT_LIB`.**
   Project-wide flags would also hit ESP-IDF and managed components, which do not build
   clean.
