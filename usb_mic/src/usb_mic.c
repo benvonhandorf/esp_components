@@ -15,10 +15,14 @@
 #include "esp_private/usb_phy.h"
 #include "freertos/FreeRTOS.h"
 #include "freertos/semphr.h"
+#include "freertos/stream_buffer.h"
 #include "freertos/task.h"
 #include "tusb.h"
 
 #include "usb_mic_desc.h"
+
+/* Between the producer and the TinyUSB task: about 11 ms at the full-speed ceiling. */
+#define USB_MIC_PCM_BUFFER_BYTES 8192
 
 /* State is file-static because TinyUSB's callbacks carry no context and there is one
  * USB device per chip. */
@@ -30,6 +34,7 @@ static struct {
     usb_phy_handle_t phy;
     TaskHandle_t task;
     SemaphoreHandle_t exited;
+    StreamBufferHandle_t pcm;   /* producer -> TinyUSB task; see tusb_task() */
 
     usb_mic_config_t stream;
     size_t packet_bytes;
@@ -169,11 +174,29 @@ bool tud_audio_set_req_entity_cb(uint8_t rhport, tusb_control_request_t const *r
 
 /* ---- TinyUSB task ----------------------------------------------------------------- */
 
+/*
+ * The only task that touches TinyUSB's audio FIFO. A producer writing into it from
+ * another task races the stack: when the host closes the stream, TinyUSB clears that
+ * FIFO from its own task (audiod_set_interface), and a write in flight at that moment
+ * corrupts the indices. So usb_mic_write() fills a stream buffer instead, and this
+ * task, the one that runs tud_task() and so the clear, moves it across.
+ */
 static void tusb_task(void *arg)
 {
     (void)arg;
+    uint8_t chunk[256];
     while (!s.stop) {
-        tud_task_ext(20, false);
+        tud_task_ext(1, false);
+        if (!s.streaming) {
+            while (xStreamBufferReceive(s.pcm, chunk, sizeof chunk, 0) > 0) {
+                /* nobody is listening: discard */
+            }
+            continue;
+        }
+        size_t n;
+        while ((n = xStreamBufferReceive(s.pcm, chunk, sizeof chunk, 0)) > 0) {
+            tud_audio_write(chunk, (uint16_t)n);
+        }
     }
     tusb_deinit(0);
     xSemaphoreGive(s.exited);
@@ -223,6 +246,10 @@ esp_err_t usb_mic_start(const usb_mic_device_config_t *cfg, usb_mic_check_t *che
             return ESP_ERR_NO_MEM;
         }
     }
+    s.pcm = xStreamBufferCreate(USB_MIC_PCM_BUFFER_BYTES, 1);
+    if (!s.pcm) {
+        return ESP_ERR_NO_MEM;
+    }
 
     usb_phy_config_t phy_conf = {
         .controller = USB_PHY_CTRL_OTG,
@@ -234,11 +261,15 @@ esp_err_t usb_mic_start(const usb_mic_device_config_t *cfg, usb_mic_check_t *che
     };
     err = usb_new_phy(&phy_conf, &s.phy);
     if (err != ESP_OK) {
+        vStreamBufferDelete(s.pcm);
+        s.pcm = NULL;
         return err;
     }
     if (!tusb_init()) {
         usb_del_phy(s.phy);
         s.phy = NULL;
+        vStreamBufferDelete(s.pcm);
+        s.pcm = NULL;
         return ESP_FAIL;
     }
 
@@ -250,6 +281,8 @@ esp_err_t usb_mic_start(const usb_mic_device_config_t *cfg, usb_mic_check_t *che
         tusb_deinit(0);
         usb_del_phy(s.phy);
         s.phy = NULL;
+        vStreamBufferDelete(s.pcm);
+        s.pcm = NULL;
         return ESP_ERR_NO_MEM;
     }
     s.started = true;
@@ -267,6 +300,8 @@ void usb_mic_stop(void)
         usb_del_phy(s.phy);
         s.phy = NULL;
     }
+    vStreamBufferDelete(s.pcm);
+    s.pcm = NULL;
     s.started = s.mounted = s.streaming = false;
 }
 
@@ -277,12 +312,7 @@ bool usb_mic_streaming(void)
 
 size_t usb_mic_space(void)
 {
-    if (!s.started) {
-        return 0;
-    }
-    tu_fifo_t *ff = tud_audio_n_get_ep_in_ff(0);
-    uint16_t used = tu_fifo_count(ff);
-    return ff->depth > used ? ff->depth - used : 0;
+    return s.started ? xStreamBufferSpacesAvailable(s.pcm) : 0;
 }
 
 size_t usb_mic_write(const void *pcm, size_t bytes)
@@ -291,13 +321,10 @@ size_t usb_mic_write(const void *pcm, size_t bytes)
         s.bytes_dropped += bytes;
         return 0;
     }
-    if (bytes > usb_mic_space()) {
-        s.overruns++;     /* the buffer is overwritable: the oldest data goes */
-    }
-    size_t done = 0;
-    while (done < bytes) {
-        size_t n = bytes - done > 0xFFFF ? 0xFFFF : bytes - done;
-        done += tud_audio_write((const uint8_t *)pcm + done, (uint16_t)n);
+    size_t done = xStreamBufferSend(s.pcm, pcm, bytes, 0);
+    if (done < bytes) {
+        s.overruns++;                       /* the TinyUSB task is not keeping up */
+        s.bytes_dropped += bytes - done;
     }
     s.bytes_written += done;
     return done;
@@ -318,8 +345,8 @@ void usb_mic_get_stats(usb_mic_stats_t *out)
     out->overruns = s.overruns;
     if (s.started) {
         tu_fifo_t *ff = tud_audio_n_get_ep_in_ff(0);
-        out->buffer_bytes = ff->depth;
-        out->buffered_bytes = tu_fifo_count(ff);
+        out->buffer_bytes = ff->depth + USB_MIC_PCM_BUFFER_BYTES;
+        out->buffered_bytes = tu_fifo_count(ff) + xStreamBufferBytesAvailable(s.pcm);
     }
 }
 

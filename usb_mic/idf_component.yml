@@ -1,4 +1,4 @@
-version: "0.1.0"
+version: "0.1.1"
 description: >-
   USB Audio Class 2 microphone for chips with a USB OTG controller (ESP32-S2, S3,
   P4, S31). Descriptors are built at run time from a channel count, sample rate and
