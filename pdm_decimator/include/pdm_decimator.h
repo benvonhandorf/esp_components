@@ -4,10 +4,11 @@
  * Software PDM-to-PCM decimation for a raw PDM receiver, any number of
  * microphones.
  *
- * Most ESP32 chips have one hardware PDM-to-PCM filter, good for two channels
- * and a fixed divide-by-64. A microphone that runs at a high clock (an
- * ultrasonic MEMS part at 4.8 MHz, say) or a board with more than two of them
- * has to take the raw one-bit stream instead and filter it in software. This is
+ * The ESP32-S3 has a hardware PDM-to-PCM filter with a fixed divide-by-64; it handles
+ * several data lines (four channels from two lines measured on hardware), but its output
+ * rate is the clock over 64. A microphone that needs another ratio (an ultrasonic MEMS
+ * part at 4.8 MHz wanting 300 kHz, say) has to take the raw one-bit stream instead and
+ * filter it in software, and that raw receiver captures a single line. This is
  * that filter. It touches no hardware: it turns words of bits into 16-bit PCM,
  * and getting the words out of the I2S peripheral stays with the caller.
  *
