@@ -3,6 +3,16 @@
 All notable changes to this component are documented here.
 The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
+## [0.2.2] - 2026-11-10
+
+### Fixed
+
+- A shell that booted before a terminal was open stayed in dumb mode for the whole
+  session (Up arrow printed `^[[A`). On USB-Serial-JTAG "host connected" means the
+  cable is enumerated, not that a program has the port open, so the one probe at
+  start-up went to nobody. In dumb mode an ESC now aborts the line and re-probes
+  (at most once a second); if the terminal answers, line editing is enabled.
+
 ## [0.2.1] - 2026-09-17
 
 ### Changed

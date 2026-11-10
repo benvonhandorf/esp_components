@@ -3,6 +3,12 @@
 All notable changes to this component are documented here.
 The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
+## [0.2.3] - 2026-11-10
+
+### Changed
+
+- Names `cli-v0.2.2` (terminal re-probe on ESC). No code change.
+
 ## [0.2.2] - 2026-09-17
 
 ### Changed

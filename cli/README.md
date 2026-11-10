@@ -73,6 +73,13 @@ grouping — nor `argtable3`, which cannot model argument syntax like `1,4,8-10`
 `esp_console_run()` directly, so a line arriving over a WebSocket would have nowhere to go,
 and the single-executor property would be lost.
 
+**Terminal probe.** On attach the reader sends `ESC[5n` and waits 500 ms for a reply; no reply
+means dumb mode (no history or completion). On USB-Serial-JTAG "connected" means the cable is
+enumerated, not that a program opened the port, so a board reset before the terminal opened
+probes into the void. In dumb mode an ESC keystroke (the start of an arrow key) aborts the
+line and re-probes, at most once a second, so opening a terminal later recovers on the first
+keypress. Scripts never send ESC and are unaffected.
+
 One consequence of declining the packaged REPL: `linenoiseSetReadCharacteristics()` is
 strongly overridden only in `esp_console_repl_internal.c`, which the linker pulls in only
 if you reference that REPL. This component gets linenoise's weak, blocking read — which is

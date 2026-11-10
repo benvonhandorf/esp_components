@@ -1,4 +1,4 @@
-version: "0.2.1"
+version: "0.2.2"
 description: >-
   A command shell for bring-up and field diagnostics, reachable over serial and
   over a browser at the same time. Commands are addressed as "<group> <command>";

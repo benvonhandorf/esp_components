@@ -11,7 +11,7 @@ idf_component_register(
     INCLUDE_DIRS "include"
     PRIV_INCLUDE_DIRS "src"
     REQUIRES     esp_common          # esp_err_t in the public header
-    PRIV_REQUIRES console            # linenoise + esp_console_split_argv
+    PRIV_REQUIRES console esp_timer # linenoise + esp_console_split_argv; re-probe rate limit
                  diag
                  freertos
                  esp_driver_uart

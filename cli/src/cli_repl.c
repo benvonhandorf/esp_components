@@ -3,6 +3,8 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+#include <fcntl.h>
+#include <unistd.h>
 
 #include "cli_io.h"
 #include "diag.h"
@@ -13,6 +15,7 @@
 #include "freertos/task.h"
 
 #include "esp_console.h"
+#include "esp_timer.h"
 #include "linenoise/linenoise.h"
 
 #include "sdkconfig.h"
@@ -144,19 +147,72 @@ static void print_banner(void)
 }
 
 /*
- * Probe the attached terminal for escape-sequence support and greet it.
+ * Set when dumb mode reads an ESC: the user is on a terminal that can do escape
+ * sequences after all, and the probe at boot simply went to nobody.
+ */
+static volatile bool escape_seen;
+
+/*
+ * linenoise's read hook. In smart mode it is a plain read(). In dumb mode an
+ * ESC byte aborts the line read (linenoise() returns NULL) so the reader can
+ * probe again. A script never sends ESC, so it is unaffected.
+ */
+static ssize_t cli_read(int fd, void *buf, size_t n)
+{
+    ssize_t r = read(fd, buf, n);
+    if (r == 1 && linenoiseIsDumbMode() && *(const char *)buf == 0x1b) {
+        escape_seen = true;
+        return -1;
+    }
+    return r;
+}
+
+/* Discard the rest of an escape sequence that is still arriving. */
+static void drain_input(void)
+{
+    int fd = fileno(stdin);
+    int flags = fcntl(fd, F_GETFL);
+    fcntl(fd, F_SETFL, flags | O_NONBLOCK);
+    for (int idle = 0; idle < 2;) {
+        char c;
+        if (read(fd, &c, 1) == 1) {
+            idle = 0;
+        } else {
+            usleep(10 * 1000);
+            idle++;
+        }
+    }
+    fcntl(fd, F_SETFL, flags);
+}
+
+/*
+ * Probe the terminal for escape-sequence support and select the mode.
+ * linenoiseProbe() resets the read hook to plain read(), so it is installed
+ * again afterwards. Returns true when line editing is available.
+ */
+static bool probe_terminal(void)
+{
+    linenoiseSetDumbMode(0);
+    bool ok = linenoiseProbe() == 0;
+    if (!ok) {
+        linenoiseSetDumbMode(1);
+    }
+    linenoiseSetReadFunction(cli_read);
+    return ok;
+}
+
+/*
+ * Greet the terminal.
  *
  * Called once the host is known to be attached, and again after a reconnect:
  * on USB-Serial-JTAG the board typically boots with nothing plugged in, and a
  * probe sent into the void would strand the shell in dumb mode for the rest of
- * the session.
+ * the session. "Connected" there means the cable is enumerated, not that a
+ * program has opened the port, so the reader also re-probes on an ESC.
  */
 static void greet_terminal(void)
 {
-    linenoiseSetDumbMode(0);
-    if (linenoiseProbe() != 0) {
-        linenoiseSetDumbMode(1);
-    }
+    probe_terminal();
 
     print_banner();
 
@@ -176,6 +232,9 @@ static void reader_task(void *arg)
     linenoiseSetCompletionCallback(&completion_cb);
 
     bool greeted = false;
+    int64_t last_probe_us = 0;
+
+    linenoiseSetReadFunction(cli_read);
 
     while (1) {
         if (!cli_io_host_connected()) {
@@ -191,6 +250,21 @@ static void reader_task(void *arg)
         }
 
         char *line = linenoise(cli_prompt());
+        if (!line && escape_seen) {
+            escape_seen = false;
+            drain_input();
+            /* At most one probe a second: a terminal that sends ESC but cannot
+             * answer would otherwise stall every keystroke by 500 ms. */
+            int64_t now = esp_timer_get_time();
+            if (now - last_probe_us >= 1000000) {
+                if (probe_terminal()) {
+                    diag_printf("\nTerminal supports escape sequences; "
+                                "line editing enabled.\n");
+                }
+                last_probe_us = esp_timer_get_time();
+            }
+            continue;
+        }
         if (!line) {
             /* Empty line or read error; just re-prompt. */
             continue;
