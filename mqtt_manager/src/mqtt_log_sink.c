@@ -6,6 +6,7 @@
 
 #include "diag.h"
 #include "freertos/FreeRTOS.h"
+#include "freertos/message_buffer.h"
 #include "freertos/task.h"
 #include "mqtt_manager.h"
 
@@ -19,48 +20,61 @@ static bool s_started;
 static volatile uint32_t s_dropped;
 
 /*
- * Guards against re-entering the sink on the same task.
+ * The sink never touches the MQTT client. diag calls it with its output lock held,
+ * and esp_mqtt_client_enqueue() takes the client's API lock with no timeout. The
+ * MQTT task holds that lock while it logs -- a transport error when the link drops
+ * is the usual case -- and logging needs the output lock. Each side then waits for
+ * the other: the console, the web console and every log line stop for good, which is
+ * what `wifi off` from a connected state did.
  *
- * The hazard is a loop: publishing logs on failure, that log goes to diag, diag
- * calls this sink, which publishes again. It has to be per-task rather than a
- * single flag, because output from an unrelated task must not be dropped merely
- * because another task happens to be inside a publish.
+ * So the sink only copies the text into a message buffer, which never blocks, and a
+ * task of its own does the publishing with no lock of diag's held.
  */
-static TaskHandle_t s_in_sink;
+#define BUFFER_BYTES   2048
+#define CHUNK_BYTES    240      /* one message; longer text is split */
+#define TASK_STACK     3072
+
+static MessageBufferHandle_t s_buffer;
+static TaskHandle_t s_task;
 
 static void sink(const char *text, size_t len, void *ctx)
 {
     (void)ctx;
 
-    if (!s_started || len == 0) {
+    if (!s_started || len == 0 || !s_buffer) {
         return;
     }
 
-    TaskHandle_t self = xTaskGetCurrentTaskHandle();
-    if (s_in_sink == self) {
-        s_dropped++;
-        return;
-    }
-
+    /* Nothing to publish over; do not fill the buffer with what cannot be sent. */
     if (!mqtt_manager_is_connected()) {
         s_dropped++;
         return;
     }
 
-    s_in_sink = self;
-    /*
-     * enqueue, not publish: diag holds its output lock across this call, and
-     * esp_mqtt_client_publish() blocks until the client task takes the message.
-     * Waiting on another task while holding the lock that task needs in order to
-     * log is a deadlock; enqueue stores it in the outbox and returns.
-     *
-     * QoS 0 by default for the same reason a log is not a transaction: losing a
-     * line beats stalling the thing that produced it.
-     */
-    if (mqtt_manager_enqueue(s_suffix, text, len, s_qos, false) != ESP_OK) {
-        s_dropped++;
+    while (len > 0) {
+        size_t n = len < CHUNK_BYTES ? len : CHUNK_BYTES;
+        if (xMessageBufferSend(s_buffer, text, n, 0) != n) {
+            s_dropped++;
+        }
+        text += n;
+        len -= n;
     }
-    s_in_sink = NULL;
+}
+
+static void publisher_task(void *arg)
+{
+    (void)arg;
+    char chunk[CHUNK_BYTES];
+
+    for (;;) {
+        size_t n = xMessageBufferReceive(s_buffer, chunk, sizeof(chunk), portMAX_DELAY);
+        if (n == 0 || !s_started || !mqtt_manager_is_connected()) {
+            continue;
+        }
+        if (mqtt_manager_enqueue(s_suffix, chunk, n, s_qos, false) != ESP_OK) {
+            s_dropped++;
+        }
+    }
 }
 
 esp_err_t mqtt_log_sink_start(const char *topic_suffix, int qos)
@@ -78,6 +92,18 @@ esp_err_t mqtt_log_sink_start(const char *topic_suffix, int qos)
     strncpy(s_suffix, topic_suffix, sizeof(s_suffix) - 1);
     s_suffix[sizeof(s_suffix) - 1] = '\0';
     s_qos = qos;
+
+    if (!s_buffer) {
+        s_buffer = xMessageBufferCreate(BUFFER_BYTES);
+        if (!s_buffer) {
+            return ESP_ERR_NO_MEM;
+        }
+    }
+    if (!s_task &&
+        xTaskCreate(publisher_task, "mqtt_log", TASK_STACK, NULL, tskIDLE_PRIORITY + 1,
+                    &s_task) != pdPASS) {
+        return ESP_ERR_NO_MEM;
+    }
 
     esp_err_t err = diag_sink_register(sink, NULL);
     if (err != ESP_OK) {

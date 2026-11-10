@@ -3,6 +3,16 @@
 All notable changes to this component are documented here.
 The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
+## [0.1.3] - 2026-11-10
+
+### Fixed
+
+- The log sink no longer calls into the MQTT client from inside diag's output lock.
+  `esp_mqtt_client_enqueue()` takes the client's API lock without a timeout, and the
+  MQTT task holds it while it logs, so a link drop with MQTT connected deadlocked the
+  output lock and silenced every log line and console. The sink now copies into a
+  message buffer and a `mqtt_log` task publishes.
+
 ## [0.1.2] - 2026-09-17
 
 ### Changed
