@@ -1,0 +1,30 @@
+version: "0.1.0"
+description: >-
+  USB Audio Class 2 sink for audio_stream: stream a microphone to a computer as a USB
+  audio device. Checks the format against the controller's isochronous budget before USB
+  starts. ESP32-S2, S3, P4 and S31; on other chips every call reports it is unsupported.
+url: https://github.com/benvonhandorf/esp_components/tree/main/audio_stream_usb
+repository: https://github.com/benvonhandorf/esp_components.git
+issues: https://github.com/benvonhandorf/esp_components/issues
+tags:
+  - audio
+  - usb
+  - microphone
+  - streaming
+dependencies:
+  idf: ">=5.3"
+  audio_stream:
+    git: https://github.com/benvonhandorf/esp_components.git
+    path: audio_stream
+    version: audio_stream-v0.1.0
+  usb_mic:
+    git: https://github.com/benvonhandorf/esp_components.git
+    path: usb_mic
+    version: usb_mic-v0.1.1
+targets:
+  - esp32s2
+  - esp32s3
+  - esp32p4
+  - esp32s31
+  - esp32c3
+  - esp32

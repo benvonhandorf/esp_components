@@ -1,0 +1,26 @@
+version: "0.1.0"
+description: >-
+  Stream a microphone elsewhere: resolve a request (rate, channels, 16- or 24-bit) against
+  what the microphone offers, convert, decimate a raw PDM source, and hand interleaved PCM
+  to a sink. Includes a WAV header for streams and a buffer-and-drain queue that can live in
+  external RAM. The sinks are audio_stream_usb and audio_stream_http.
+url: https://github.com/benvonhandorf/esp_components/tree/main/audio_stream
+repository: https://github.com/benvonhandorf/esp_components.git
+issues: https://github.com/benvonhandorf/esp_components/issues
+tags:
+  - audio
+  - microphone
+  - streaming
+  - pcm
+dependencies:
+  idf: ">=5.3"
+  pdm_decimator:
+    git: https://github.com/benvonhandorf/esp_components.git
+    path: pdm_decimator
+    version: pdm_decimator-v0.1.0
+targets:
+  - esp32
+  - esp32s2
+  - esp32s3
+  - esp32c3
+  - esp32p4

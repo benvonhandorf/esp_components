@@ -1,0 +1,27 @@
+version: "0.1.0"
+description: >-
+  HTTP sink for audio_stream: serve a microphone as an endless WAV response from an
+  esp_http_server handler, to curl, ffplay, VLC, sox or a browser. One listener, an
+  asynchronous request so the server is never held, and a buffer (in external RAM when the
+  chip has it) that absorbs WiFi stalls.
+url: https://github.com/benvonhandorf/esp_components/tree/main/audio_stream_http
+repository: https://github.com/benvonhandorf/esp_components.git
+issues: https://github.com/benvonhandorf/esp_components/issues
+tags:
+  - audio
+  - http
+  - wav
+  - microphone
+  - streaming
+dependencies:
+  idf: ">=5.3"
+  audio_stream:
+    git: https://github.com/benvonhandorf/esp_components.git
+    path: audio_stream
+    version: audio_stream-v0.1.0
+targets:
+  - esp32
+  - esp32s2
+  - esp32s3
+  - esp32c3
+  - esp32p4
