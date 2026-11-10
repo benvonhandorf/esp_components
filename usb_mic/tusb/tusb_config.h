@@ -60,14 +60,13 @@ extern "C" {
  */
 #define CFG_TUD_AUDIO_EP_IN_FLOW_CONTROL 1
 
-/* TinyUSB walks exactly this many bytes of descriptor, starting at the interface
- * association, to find the endpoint: too long and it runs off the end into zero-length
- * descriptors and hangs the enumeration, too short and it never sees the endpoint. It
- * is a constant because the descriptor does not grow with the channel count; it must
- * equal USB_MIC_FUNC_DESC_LEN in src/usb_mic_desc.h, which the builder enforces. */
-#define CFG_TUD_AUDIO_FUNC_1_DESC_LEN        118
+/* TinyUSB 0.21 measures the function's descriptor length itself (from the interface
+ * association to the end of the audio streaming interfaces), so the old
+ * CFG_TUD_AUDIO_FUNC_1_DESC_LEN is gone. */
 #define CFG_TUD_AUDIO_FUNC_1_N_AS_INT        1
-#define CFG_TUD_AUDIO_FUNC_1_CTRL_BUF_SZ     64
+/* One control buffer for every function: the largest request is the clock's range
+ * reply, 14 bytes. */
+#define CFG_TUD_AUDIO_CTRL_BUF_SZ            64
 
 /* Capacities. The largest packet on any supported controller is 1024 bytes (high
  * speed); the real size is whatever the descriptor says, always at or below this.

@@ -35,8 +35,7 @@ extern "C" {
 #define USB_MIC_ID_CLOCK       4
 
 /* The audio function's descriptors, from the interface association to the last
- * endpoint descriptor. tusb/tusb_config.h repeats this number as
- * CFG_TUD_AUDIO_FUNC_1_DESC_LEN; TinyUSB needs it at compile time. */
+ * endpoint descriptor. */
 #define USB_MIC_FUNC_DESC_LEN   118
 #define USB_MIC_CONFIG_DESC_LEN (9 + USB_MIC_FUNC_DESC_LEN)
 

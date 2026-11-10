@@ -39,12 +39,8 @@ say what would fit. They are plain C with a host test (`make -C test`).
 - **It installs its own TinyUSB configuration** (audio class only, from `tusb/`), the way
   `espressif/usb_device_uac` does, so it cannot share TinyUSB with `esp_tinyusb`'s CDC
   console or another device class.
-- **The descriptor's length is a compile-time constant** (`CFG_TUD_AUDIO_FUNC_1_DESC_LEN`
-  in `tusb/tusb_config.h`): TinyUSB walks exactly that many bytes. Adding a descriptor, such
-  as a feature unit, means changing both it and `USB_MIC_FUNC_DESC_LEN`; the host test fails
-  if they disagree.
 - **Packet sizes are TinyUSB's flow control**, not this component's: it sends n-1, n or
   n+1 frames per packet from the buffer's fill, which absorbs the drift between the PCM
   clock and the host's frame clock. It takes the rate from the clock source's GET_CUR reply.
 - **No feature unit**, so no mute or volume controls.
-- Needs `espressif/tinyusb` ^0.19.0~3 (declared in `idf_component.yml`).
+- Needs `espressif/tinyusb` ^0.21.0~4 (declared in `idf_component.yml`).

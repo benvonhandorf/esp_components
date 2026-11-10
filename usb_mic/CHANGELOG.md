@@ -3,6 +3,16 @@
 All notable changes to this component are documented here.
 The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
+## [0.2.0] - 2026-11-10
+
+### Changed
+
+- **Moves to `espressif/tinyusb` ^0.21.0~4** (was ^0.19.0~3). TinyUSB 0.21 measures the
+  audio function's descriptor itself, so `CFG_TUD_AUDIO_FUNC_1_DESC_LEN` is removed from
+  `tusb/tusb_config.h` and the descriptor length is no longer a number to keep in step;
+  the per-function control buffer size is now the single `CFG_TUD_AUDIO_CTRL_BUF_SZ`.
+  The component's own code is unchanged. A project pinning an older TinyUSB needs 0.1.x.
+
 ## [0.1.1] - 2026-11-09
 
 ### Fixed

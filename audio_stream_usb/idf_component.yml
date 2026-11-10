@@ -1,4 +1,4 @@
-version: "0.1.0"
+version: "0.1.1"
 description: >-
   USB Audio Class 2 sink for audio_stream: stream a microphone to a computer as a USB
   audio device. Checks the format against the controller's isochronous budget before USB
@@ -20,7 +20,7 @@ dependencies:
   usb_mic:
     git: https://github.com/benvonhandorf/esp_components.git
     path: usb_mic
-    version: usb_mic-v0.1.1
+    version: usb_mic-v0.2.0
 targets:
   - esp32s2
   - esp32s3
