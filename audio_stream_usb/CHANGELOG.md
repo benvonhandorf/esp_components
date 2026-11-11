@@ -3,6 +3,12 @@
 All notable changes to this component are documented here.
 The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
+## [0.1.2] - 2026-11-11
+
+### Changed
+
+- Takes `audio_stream` 0.1.1 (faster 16-bit conversion). No code change here.
+
 ## [0.1.1] - 2026-11-10
 
 ### Changed

@@ -169,6 +169,19 @@ static void test_convert(void)
     const int16_t want16[4] = {0x0304, 0x0102, 0x090A, 0x0708};
     CHECK(memcmp(out, want16, 8) == 0);
 
+    /* 16-bit to 16-bit, every channel in order: the one-copy path, same bytes. */
+    {
+        audio_stream_fmt_t id = {.rate_hz = 48000, .channels = 2, .bytes = 2, .chan = {0, 1}};
+        const int16_t two[4] = {0x0102, 0x0304, 0x0506, 0x0708};
+        n = audio_stream_convert(&id, 2, 2, two, 2, out);
+        CHECK(n == 8 && memcmp(out, two, 8) == 0);
+        /* One channel of two. */
+        id.channels = 1; id.chan[0] = 1;
+        n = audio_stream_convert(&id, 2, 2, two, 2, out);
+        const int16_t right[2] = {0x0304, 0x0708};
+        CHECK(n == 4 && memcmp(out, right, 4) == 0);
+    }
+
     /* 32-bit slots to 16 bits: the top half. */
     const int32_t in32[2] = {(int32_t)0x12345600, (int32_t)0xFEDCBA00};
     fmt.channels = 1; fmt.chan[0] = 1;

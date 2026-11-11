@@ -194,6 +194,24 @@ size_t audio_stream_convert(const audio_stream_fmt_t *fmt, size_t slot_bytes, in
     const uint8_t *src = in;
     const size_t frame_bytes = (size_t)src_channels * slot_bytes;
     uint8_t *dst = out;
+    if (slot_bytes == 2 && fmt->bytes == 2) {
+        bool identity = fmt->channels == src_channels;
+        for (int c = 0; identity && c < fmt->channels; c++) {
+            identity = fmt->chan[c] == c;
+        }
+        if (identity) {
+            memcpy(out, in, frames * frame_bytes);
+            return frames * frame_bytes;
+        }
+        const int16_t *s16 = in;
+        int16_t *d16 = (int16_t *)out;
+        for (size_t f = 0; f < frames; f++) {
+            for (int c = 0; c < fmt->channels; c++) {
+                *d16++ = s16[f * (size_t)src_channels + fmt->chan[c]];
+            }
+        }
+        return frames * (size_t)fmt->channels * 2;
+    }
     for (size_t f = 0; f < frames; f++) {
         const uint8_t *frame = src + f * frame_bytes;
         for (int c = 0; c < fmt->channels; c++) {

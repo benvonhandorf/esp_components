@@ -1,4 +1,4 @@
-version: "0.1.0"
+version: "0.1.1"
 description: >-
   HTTP sink for audio_stream: serve a microphone as an endless WAV response from an
   esp_http_server handler, to curl, ffplay, VLC, sox or a browser. One listener, an
@@ -18,7 +18,7 @@ dependencies:
   audio_stream:
     git: https://github.com/benvonhandorf/esp_components.git
     path: audio_stream
-    version: audio_stream-v0.1.0
+    version: audio_stream-v0.1.1
 targets:
   - esp32
   - esp32s2

@@ -1,4 +1,4 @@
-version: "0.1.1"
+version: "0.1.2"
 description: >-
   USB Audio Class 2 sink for audio_stream: stream a microphone to a computer as a USB
   audio device. Checks the format against the controller's isochronous budget before USB
@@ -16,7 +16,7 @@ dependencies:
   audio_stream:
     git: https://github.com/benvonhandorf/esp_components.git
     path: audio_stream
-    version: audio_stream-v0.1.0
+    version: audio_stream-v0.1.1
   usb_mic:
     git: https://github.com/benvonhandorf/esp_components.git
     path: usb_mic

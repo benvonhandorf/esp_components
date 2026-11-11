@@ -1,4 +1,4 @@
-version: "0.1.0"
+version: "0.1.1"
 description: >-
   Stream a microphone elsewhere: resolve a request (rate, channels, 16- or 24-bit) against
   what the microphone offers, convert, decimate a raw PDM source, and hand interleaved PCM

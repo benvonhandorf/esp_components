@@ -3,6 +3,15 @@
 All notable changes to this component are documented here.
 The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
+## [0.1.1] - 2026-11-11
+
+### Changed
+
+- `audio_stream_convert()`: 16-bit to 16-bit is one `memcpy` when every source channel is selected
+  in order, and a plain 16-bit loop otherwise. It was about 280 cycles per frame for stereo and is
+  now about 6, which is what let 300 kHz stereo keep up on an ESP32-S3 at 240 MHz. Output bytes
+  are unchanged; other widths take the old path. Host test extended.
+
 ## [0.1.0] - 2026-11-10
 
 First release, extracted from the `audio-usb` command of `esp_board_bringup`.
